@@ -63,7 +63,11 @@ func (repo *Repo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendError(w, false, req.ID, ErrParseError(err.Error()))
+		if _, ok := err.(*json.UnmarshalTypeError); ok {
+			sendError(w, false, req.ID, ErrInvalidRequest(err.Error()))
+		} else {
+			sendError(w, false, req.ID, ErrParseError(err.Error()))
+		}
 		return
 	}
 	defer r.Body.Close()
