@@ -13,10 +13,11 @@ import (
 
 func TestRepoHandler(t *testing.T) {
 	testCases := []struct {
-		desc    string
-		methods map[string]Method
-		req     string
-		wantRes string
+		desc           string
+		methods        map[string]Method
+		req            string
+		wantRes        string
+		isNotification bool
 	}{
 		// Test cases take from https://www.jsonrpc.org/specification
 		{
@@ -44,14 +45,14 @@ func TestRepoHandler(t *testing.T) {
 			wantRes: `{"jsonrpc": "2.0", "result": 19, "id": 4}`,
 		},
 		{
-			desc:    "5. a Notification",
-			req:     `{"jsonrpc": "2.0", "method": "update", "params": [1,2,3,4,5]}`,
-			wantRes: ``,
+			desc:           "5. a Notification",
+			req:            `{"jsonrpc": "2.0", "method": "update", "params": [1,2,3,4,5]}`,
+			isNotification: true,
 		},
 		{
-			desc:    "6. a Notification",
-			req:     `{"jsonrpc": "2.0", "method": "foobar"}`,
-			wantRes: ``,
+			desc:           "6. a Notification",
+			req:            `{"jsonrpc": "2.0", "method": "foobar"}`,
+			isNotification: true,
 		},
 		{
 			desc:    "7. rpc call of non-existent method",
@@ -88,6 +89,10 @@ func TestRepoHandler(t *testing.T) {
 			// decode result
 			var got response
 			err = json.NewDecoder(res.Body).Decode(&got)
+			if tC.isNotification {
+				require.EqualError(t, err, "EOF")
+				return
+			}
 			require.NoError(t, err)
 			if got.Error != nil {
 				got.Error.Data = nil // error data is empty in test cases

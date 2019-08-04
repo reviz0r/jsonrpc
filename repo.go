@@ -58,24 +58,24 @@ func (repo *Repo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if !strings.HasPrefix(r.Header.Get(contentType), contentTypeJSON) {
 		err := fmt.Errorf("%s must be %s", contentType, contentTypeJSON)
-		sendError(w, req.ID, ErrParseError(err.Error()))
+		sendError(w, false, req.ID, ErrParseError(err.Error()))
 		return
 	}
 
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		sendError(w, req.ID, ErrParseError(err.Error()))
+		sendError(w, false, req.ID, ErrParseError(err.Error()))
 		return
 	}
 	defer r.Body.Close()
 
 	if err := req.validate(); err != nil {
-		sendError(w, req.ID, ErrInvalidRequest(err.Error()))
+		sendError(w, req.isNotification(), req.ID, ErrInvalidRequest(err.Error()))
 		return
 	}
 
 	fn, exist := repo.takeMethod(req.Method)
 	if !exist {
-		sendError(w, req.ID, ErrMethodNotFound(nil))
+		sendError(w, req.isNotification(), req.ID, ErrMethodNotFound(nil))
 		return
 	}
 
@@ -86,9 +86,9 @@ func (repo *Repo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if fnerr := fn(ctx, &req, &res); fnerr != nil {
 		if err, ok := fnerr.(*Error); ok {
-			sendError(w, req.ID, err)
+			sendError(w, req.isNotification(), req.ID, err)
 		} else {
-			sendError(w, req.ID, ErrInternalError(fnerr.Error()))
+			sendError(w, req.isNotification(), req.ID, ErrInternalError(fnerr.Error()))
 		}
 		return
 	}
@@ -97,22 +97,26 @@ func (repo *Repo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
 	} else {
 		if err := json.NewEncoder(w).Encode(&res); err != nil {
-			sendError(w, req.ID, ErrInternalError(err.Error()))
+			sendError(w, req.isNotification(), req.ID, ErrInternalError(err.Error()))
 			return
 		}
 	}
 }
 
 // sendError Отправка ошибки jsonrpc
-func sendError(w http.ResponseWriter, id json.RawMessage, err *Error) {
+func sendError(w http.ResponseWriter, isNotification bool, id json.RawMessage, err *Error) {
 	res := response{
 		ID:      id,
 		Jsonprc: jsonrpcVersion,
 		Error:   err,
 	}
 
-	encodeErr := json.NewEncoder(w).Encode(res)
-	if encodeErr != nil {
-		w.WriteHeader(http.StatusInternalServerError)
+	if isNotification {
+		w.WriteHeader(http.StatusOK)
+	} else {
+		encodeErr := json.NewEncoder(w).Encode(res)
+		if encodeErr != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 	}
 }
