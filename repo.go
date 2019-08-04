@@ -111,5 +111,8 @@ func sendError(w http.ResponseWriter, id json.RawMessage, err *Error) {
 		Error:   err,
 	}
 
-	json.NewEncoder(w).Encode(res)
+	encodeErr := json.NewEncoder(w).Encode(res)
+	if encodeErr != nil {
+		w.WriteHeader(http.StatusInternalServerError)
+	}
 }
