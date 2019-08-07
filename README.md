@@ -24,6 +24,7 @@ package main
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
 	"log"
 	"net/http"
@@ -54,7 +55,7 @@ func Greeting(ctx context.Context, params io.Reader, result io.Writer) error {
 	// Your logic
 	{
 		log.Printf("incoming request with id %s", jsonrpc.RequestID(ctx))
-		if req.Name != "" {
+		if req.Name == "" {
 			req.Name = "stranger"
 		}
 		res.Greeting = fmt.Sprintf("Hello, %s", req.Name)
@@ -66,7 +67,7 @@ func Greeting(ctx context.Context, params io.Reader, result io.Writer) error {
 
 func main() {
 	repo := jsonrpc.New()
-	repo.RegisterMethod("greeting", Example)
+	repo.RegisterMethod("greeting", Greeting)
 
 	http.Handle("/rpc", repo)
 	http.ListenAndServe(":8080", http.DefaultServeMux)
