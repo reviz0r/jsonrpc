@@ -7,7 +7,7 @@ import (
 
 // response Ответ
 type response struct {
-	ID      json.RawMessage `json:"id"`
+	ID      *id             `json:"id"`
 	Jsonprc string          `json:"jsonrpc"`
 	Result  json.RawMessage `json:"result,omitempty"`
 	Error   *Error          `json:"error,omitempty"`
