@@ -6,7 +6,7 @@ import (
 	"io"
 )
 
-// request Запрос
+// request represents a JSON-RPC request received by the server
 type request struct {
 	ID      *id             `json:"id,omitempty"`
 	Jsonrpc string          `json:"jsonrpc"`

@@ -5,7 +5,7 @@ import (
 	"io"
 )
 
-// response Ответ
+// response represents a JSON-RPC response returned by the server
 type response struct {
 	ID      *id             `json:"id"`
 	Jsonprc string          `json:"jsonrpc"`

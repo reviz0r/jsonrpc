@@ -9,18 +9,18 @@ import (
 	"sync"
 )
 
-// Repo Репозиторий методов
+// Repo for storing methods
 type Repo struct {
 	m       sync.RWMutex
 	methods map[string]Method
 }
 
-// New Новый репозиторий
+// New repo
 func New() *Repo {
 	return &Repo{methods: make(map[string]Method)}
 }
 
-// RegisterMethod Зарегистрировать метод
+// RegisterMethod registers method in repo
 func (repo *Repo) RegisterMethod(method Method) {
 	repo.m.Lock()
 	defer repo.m.Unlock()
@@ -28,7 +28,7 @@ func (repo *Repo) RegisterMethod(method Method) {
 	repo.methods[method.Name()] = method
 }
 
-// UnregisterMethod Отменить регистрацию метода
+// UnregisterMethod removes method by name
 func (repo *Repo) UnregisterMethod(name string) {
 	repo.m.Lock()
 	defer repo.m.Unlock()
@@ -36,7 +36,7 @@ func (repo *Repo) UnregisterMethod(name string) {
 	delete(repo.methods, name)
 }
 
-// takeMethod Получить метод
+// takeMethod gives method by name
 func (repo *Repo) takeMethod(methodName string) (Method, bool) {
 	repo.m.RLock()
 	defer repo.m.RUnlock()
@@ -45,7 +45,7 @@ func (repo *Repo) takeMethod(methodName string) (Method, bool) {
 	return fn, exist
 }
 
-// ServeHTTP Обработчик http запросов
+// ServeHTTP implement http.Handler for handling JSON-RPC requests
 func (repo *Repo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	var req request
 	var res response
@@ -103,7 +103,7 @@ func (repo *Repo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-// sendError Отправка ошибки jsonrpc
+// sendError in response
 func sendError(w http.ResponseWriter, isNotification bool, id *id, err *Error) {
 	res := response{
 		ID:      id,
