@@ -74,7 +74,6 @@ func TestRepoHandler(t *testing.T) {
 		{
 			desc:           "rpc call with invalid Request id (null)",
 			req:            `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": null}`,
-			wantRes:        `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}`,
 			isNotification: true,
 		},
 		{
