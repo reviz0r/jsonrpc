@@ -90,11 +90,12 @@ func TestRepoHandler(t *testing.T) {
 			var got response
 			err = json.NewDecoder(res.Body).Decode(&got)
 			if tC.isNotification {
-				require.EqualError(t, err, "EOF")
+				require.EqualError(t, err, "EOF") // no response body for notifications
 				return
 			}
 			require.NoError(t, err)
 			if got.Error != nil {
+				t.Logf("error data: %v", got.Error.Data)
 				got.Error.Data = nil // error data is empty in test cases
 			}
 
