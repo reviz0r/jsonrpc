@@ -108,7 +108,7 @@ func (repo *Repo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 }
 
 // sendError Отправка ошибки jsonrpc
-func sendError(w http.ResponseWriter, isNotification bool, id json.RawMessage, err *Error) {
+func sendError(w http.ResponseWriter, isNotification bool, id *id, err *Error) {
 	res := response{
 		ID:      id,
 		Jsonprc: jsonrpcVersion,

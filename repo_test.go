@@ -69,6 +69,29 @@ func TestRepoHandler(t *testing.T) {
 			req:     `{"jsonrpc": "2.0", "method": 1, "params": "bar"}`,
 			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}`,
 		},
+
+		// Custom test cases
+		{
+			desc:           "rpc call with invalid Request id (null)",
+			req:            `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": null}`,
+			wantRes:        `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}`,
+			isNotification: true,
+		},
+		{
+			desc:    "rpc call with invalid Request id (float)",
+			req:     `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": 1.1}`,
+			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}`,
+		},
+		{
+			desc:    "rpc call with invalid Request id (array)",
+			req:     `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": ["foo", "bar"]}`,
+			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}`,
+		},
+		{
+			desc:    "rpc call with invalid Request id (object)",
+			req:     `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": {"foo": "bar"}}`,
+			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}`,
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {

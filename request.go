@@ -8,7 +8,7 @@ import (
 
 // request Запрос
 type request struct {
-	ID      json.RawMessage `json:"id,omitempty"`
+	ID      *id             `json:"id,omitempty"`
 	Jsonrpc string          `json:"jsonrpc"`
 	Method  string          `json:"method"`
 	Params  json.RawMessage `json:"params,omitempty"`

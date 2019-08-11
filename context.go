@@ -1,20 +1,17 @@
 package jsonrpc
 
-import (
-	"context"
-	"encoding/json"
-)
+import "context"
 
 type contextKey string
 
 const requestID contextKey = "request_id"
 
 // RequestID Получение id запроса из контекста
-func RequestID(ctx context.Context) json.RawMessage {
+func RequestID(ctx context.Context) string {
 	raw := ctx.Value(requestID)
-	value, ok := raw.(json.RawMessage)
+	value, ok := raw.(*id)
 	if !ok {
-		return json.RawMessage{}
+		return ""
 	}
-	return value
+	return value.String()
 }
