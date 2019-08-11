@@ -67,7 +67,7 @@ func Greeting(ctx context.Context, params io.Reader, result io.Writer) error {
 
 func main() {
 	repo := jsonrpc.New()
-	repo.RegisterMethod("greeting", Greeting)
+	repo.RegisterMethod(jsonrpc.MethodFunc("greeting", Greeting))
 
 	http.Handle("/rpc", repo)
 	http.ListenAndServe(":8080", http.DefaultServeMux)

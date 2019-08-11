@@ -14,7 +14,7 @@ import (
 func TestRepoHandler(t *testing.T) {
 	testCases := []struct {
 		desc           string
-		methods        map[string]Method
+		methods        []Method
 		req            string
 		wantRes        string
 		isNotification bool
@@ -22,25 +22,25 @@ func TestRepoHandler(t *testing.T) {
 		// Test cases take from https://www.jsonrpc.org/specification
 		{
 			desc:    "1. rpc call with positional parameters",
-			methods: map[string]Method{"subtract": SubstractPositional},
+			methods: []Method{MethodFunc("subtract", SubtractPositional)},
 			req:     `{"jsonrpc": "2.0", "method": "subtract", "params": [42, 23], "id": 1}`,
 			wantRes: `{"jsonrpc": "2.0", "result": 19, "id": 1}`,
 		},
 		{
 			desc:    "2. rpc call with positional parameters",
-			methods: map[string]Method{"subtract": SubstractPositional},
+			methods: []Method{MethodFunc("subtract", SubtractPositional)},
 			req:     `{"jsonrpc": "2.0", "method": "subtract", "params": [23, 42], "id": 2}`,
 			wantRes: `{"jsonrpc": "2.0", "result": -19, "id": 2}`,
 		},
 		{
 			desc:    "3. rpc call with named parameters",
-			methods: map[string]Method{"subtract": SubstractNamed},
+			methods: []Method{MethodFunc("subtract", SubtractNamed)},
 			req:     `{"jsonrpc": "2.0", "method": "subtract", "params": {"subtrahend": 23, "minuend": 42}, "id": 3}`,
 			wantRes: `{"jsonrpc": "2.0", "result": 19, "id": 3}`,
 		},
 		{
 			desc:    "4. rpc call with named parameters",
-			methods: map[string]Method{"subtract": SubstractNamed},
+			methods: []Method{MethodFunc("subtract", SubtractNamed)},
 			req:     `{"jsonrpc": "2.0", "method": "subtract", "params": {"minuend": 42, "subtrahend": 23}, "id": 4}`,
 			wantRes: `{"jsonrpc": "2.0", "result": 19, "id": 4}`,
 		},
@@ -96,8 +96,8 @@ func TestRepoHandler(t *testing.T) {
 		t.Run(tC.desc, func(t *testing.T) {
 			// init server
 			repo := New()
-			for name, method := range tC.methods {
-				repo.RegisterMethod(name, method)
+			for _, method := range tC.methods {
+				repo.RegisterMethod(method)
 			}
 			server := httptest.NewServer(repo)
 			defer server.Close()

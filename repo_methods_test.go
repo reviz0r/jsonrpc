@@ -6,40 +6,40 @@ import (
 	"io"
 )
 
-type SubstractPositionalRequest [2]int
-type SubstractPositionalResponse int
+type SubtractPositionalRequest [2]int
+type SubtractPositionalResponse int
 
-func SubstractPositional(ctx context.Context, in io.Reader, out io.Writer) error {
-	var req SubstractPositionalRequest
-	var res SubstractPositionalResponse
+func SubtractPositional(ctx context.Context, in io.Reader, out io.Writer) error {
+	var req SubtractPositionalRequest
+	var res SubtractPositionalResponse
 	if err := json.NewDecoder(in).Decode(&req); err != nil {
 		return ErrInvalidParams(err.Error())
 	}
 
 	// Your logic
 	{
-		res = SubstractPositionalResponse(req[0] - req[1])
+		res = SubtractPositionalResponse(req[0] - req[1])
 	}
 
 	return json.NewEncoder(out).Encode(&res)
 }
 
-type SubstractNamedRequest struct {
+type SubtractNamedRequest struct {
 	Minuend, Subtrahend int
 }
 
-type SubstractNamedResponse int
+type SubtractNamedResponse int
 
-func SubstractNamed(ctx context.Context, in io.Reader, out io.Writer) error {
-	var req SubstractNamedRequest
-	var res SubstractNamedResponse
+func SubtractNamed(ctx context.Context, in io.Reader, out io.Writer) error {
+	var req SubtractNamedRequest
+	var res SubtractNamedResponse
 	if err := json.NewDecoder(in).Decode(&req); err != nil {
 		return ErrInvalidParams(err.Error())
 	}
 
 	// Your logic
 	{
-		res = SubstractNamedResponse(req.Minuend - req.Subtrahend)
+		res = SubtractNamedResponse(req.Minuend - req.Subtrahend)
 	}
 
 	return json.NewEncoder(out).Encode(&res)

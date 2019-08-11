@@ -4,14 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"sync"
 )
-
-// Method jsonrpc
-type Method = func(ctx context.Context, params io.Reader, result io.Writer) error
 
 // Repo Репозиторий методов
 type Repo struct {
@@ -25,11 +21,11 @@ func New() *Repo {
 }
 
 // RegisterMethod Зарегистрировать метод
-func (repo *Repo) RegisterMethod(name string, fn Method) {
+func (repo *Repo) RegisterMethod(method Method) {
 	repo.m.Lock()
 	defer repo.m.Unlock()
 
-	repo.methods[name] = fn
+	repo.methods[method.Name()] = method
 }
 
 // UnregisterMethod Отменить регистрацию метода
@@ -77,7 +73,7 @@ func (repo *Repo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	fn, exist := repo.takeMethod(req.Method)
+	method, exist := repo.takeMethod(req.Method)
 	if !exist {
 		sendError(w, req.isNotification(), req.ID, ErrMethodNotFound(nil))
 		return
@@ -88,11 +84,11 @@ func (repo *Repo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	ctx := context.WithValue(r.Context(), requestID, req.ID)
 
-	if fnerr := fn(ctx, &req, &res); fnerr != nil {
-		if err, ok := fnerr.(*Error); ok {
+	if methoderr := method.Handle(ctx, &req, &res); methoderr != nil {
+		if err, ok := methoderr.(*Error); ok {
 			sendError(w, req.isNotification(), req.ID, err)
 		} else {
-			sendError(w, req.isNotification(), req.ID, ErrInternalError(fnerr.Error()))
+			sendError(w, req.isNotification(), req.ID, ErrInternalError(methoderr.Error()))
 		}
 		return
 	}
