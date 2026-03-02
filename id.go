@@ -7,68 +7,75 @@ import (
 )
 
 type id struct {
-	num int64
-	str string
+	str      string
+	isQuoted bool
+}
 
-	isString bool
+func IntID(num int) id {
+	return id{str: strconv.Itoa(num), isQuoted: false}
+}
+
+func StringID(str string) id {
+	return id{str: str, isQuoted: true}
 }
 
 func (i id) String() string {
-	if i.isString {
-		return strconv.Quote(i.str)
-	}
+	return i.str
+}
 
-	return strconv.FormatInt(i.num, 10)
+func (i id) IsZero() bool {
+	return i.str == "" && i.isQuoted == false
 }
 
 // MarshalJSON implements json.Marshaler
 func (i id) MarshalJSON() ([]byte, error) {
-	if i.num == 0 && i.str == "" {
-		return []byte("null"), nil
+	if i.IsZero() {
+		return json.RawMessage("null"), nil
 	}
 
-	if i.isString {
-		return json.Marshal(i.str)
+	if i.isQuoted {
+		quoted := strconv.Quote(i.str)
+		return json.RawMessage(quoted), nil
 	}
 
-	return json.Marshal(i.num)
+	return json.RawMessage(i.str), nil
 }
 
 // UnmarshalJSON implements json.Unmarshaler
 func (i *id) UnmarshalJSON(data []byte) error {
-	idType := reflect.TypeOf(i).Elem()
-
-	var valString string
-	if err := json.Unmarshal(data, &valString); err == nil {
-		*i = id{str: valString, isString: true}
-		return nil
-	}
-
-	var valNumber json.Number
-	if err := json.Unmarshal(data, &valNumber); err == nil {
-		valInt, err := valNumber.Int64()
-		if err != nil {
-			return unmarshalIDError("float", idType)
-		}
-		*i = id{num: valInt, isString: false}
-		return nil
-	}
-
-	var value interface{}
+	var value any
 	if err := json.Unmarshal(data, &value); err != nil {
 		return err
 	}
 
 	switch val := value.(type) {
-	case []interface{}:
-		return unmarshalIDError("array", idType)
-	case map[string]interface{}:
-		return unmarshalIDError("object", idType)
+	case float64:
+		if !isInteger(val) {
+			return unmarshalIDError("float")
+		}
+
+		*i = id{str: strconv.Itoa(int(val)), isQuoted: false}
+		return nil
+	case string:
+		*i = id{str: val, isQuoted: true}
+		return nil
+
+	case bool:
+		return unmarshalIDError("bool")
+	case []any:
+		return unmarshalIDError("array")
+	case map[string]any:
+		return unmarshalIDError("object")
 	default:
-		return unmarshalIDError(reflect.TypeOf(val).String(), idType)
+		return unmarshalIDError(reflect.TypeOf(val).String())
 	}
 }
 
-func unmarshalIDError(Value string, Type reflect.Type) *json.UnmarshalTypeError {
-	return &json.UnmarshalTypeError{Value: Value, Type: Type, Struct: "request", Field: "id"}
+func isInteger(val float64) bool {
+	return val == float64(int(val))
+}
+
+func unmarshalIDError(Value string) *json.UnmarshalTypeError {
+	idType := reflect.TypeFor[*id]().Elem()
+	return &json.UnmarshalTypeError{Value: Value, Type: idType}
 }
