@@ -19,7 +19,7 @@ type Repo struct {
 	closeCh chan struct{}
 }
 
-func NewRepo(requestTimeout time.Duration) Repo {
+func New(requestTimeout time.Duration) Repo {
 	return Repo{
 		handlers: make(map[string]handler),
 		timeout:  requestTimeout,

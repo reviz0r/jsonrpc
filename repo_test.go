@@ -116,13 +116,13 @@ func TestRepoHandler(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			server := jsonrpc.NewRepo(time.Second)
+			repo := jsonrpc.New(time.Second)
 
 			if tC.register != nil {
-				tC.register(server)
+				tC.register(repo)
 			}
 
-			res, err := server.Handle(context.Background(), json.RawMessage(tC.req))
+			res, err := repo.Handle(context.Background(), json.RawMessage(tC.req))
 			require.NoError(t, err)
 
 			if tC.isNotification {
