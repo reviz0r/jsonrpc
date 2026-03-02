@@ -3,8 +3,9 @@ package jsonrpc
 import (
 	"encoding/json"
 	"errors"
-	"io"
 )
+
+const jsonrpcVersion = "2.0"
 
 // request represents a JSON-RPC request received by the server
 type request struct {
@@ -12,16 +13,6 @@ type request struct {
 	Jsonrpc string          `json:"jsonrpc"`
 	Method  string          `json:"method"`
 	Params  json.RawMessage `json:"params,omitempty"`
-}
-
-func (r *request) Read(p []byte) (n int, err error) {
-	if r == nil || r.Params == nil {
-		return 0, io.EOF
-	}
-
-	n = copy(p, r.Params)
-
-	return n, nil
 }
 
 // isNotification Уведомление
@@ -42,11 +33,11 @@ func (r *request) isMethodEmpty() bool {
 // validate Корректный ли запрос
 func (r *request) validate() error {
 	if !r.isValidVersion() {
-		return errors.New("invalid json-rpc version")
+		return errors.New("jsonrpc: invalid version")
 	}
 
 	if r.isMethodEmpty() {
-		return errors.New("method is empty")
+		return errors.New("jsonrpc: method is empty")
 	}
 
 	return nil

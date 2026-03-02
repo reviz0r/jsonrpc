@@ -1,9 +1,6 @@
 package jsonrpc
 
-import (
-	"encoding/json"
-	"io"
-)
+import "encoding/json"
 
 // response represents a JSON-RPC response returned by the server
 type response struct {
@@ -13,13 +10,14 @@ type response struct {
 	Error   *Error          `json:"error,omitempty"`
 }
 
-func (r *response) Write(p []byte) (n int, err error) {
-	if r == nil {
-		return 0, io.EOF
+func responseWithResult(id *id, result json.RawMessage) (json.RawMessage, error) {
+	return json.Marshal(response{ID: id, Jsonprc: jsonrpcVersion, Result: result})
+}
+
+func responseWithError(id *id, isNotification bool, err *Error) (json.RawMessage, error) {
+	if isNotification {
+		return nil, nil
 	}
 
-	r.Result = make([]byte, len(p))
-	n = copy(r.Result, p)
-
-	return n, nil
+	return json.Marshal(response{ID: id, Jsonprc: jsonrpcVersion, Error: err})
 }
