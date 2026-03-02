@@ -9,65 +9,45 @@ Ready for use with `go mod`.
 ## Install
 
 ```
-$ go get -u github.com/reviz0r/jsonrpc
+$ go get -u github.com/reviz0r/jsonrpc/v2
 ```
 
 ## Usage
 
 In common case you must write function with signature
-`func(ctx context.Context, params io.Reader, result io.Writer) error`
+`func[Params, Result any](ctx context.Context, params Params) (Result, error)`
 and register it. That's all, folks!
 
 ```golang
-package main
-
-import (
-	"context"
-	"encoding/json"
-	"fmt"
-	"io"
-	"log"
-	"net/http"
-
-	"github.com/reviz0r/jsonrpc"
-)
-
 // Params of your method
-type GreetingReq struct {
+type GreetingParams struct {
 	Name string `json:"name"`
 }
 
 // Result of your method
-type GreetingRes struct {
+type GreetingResult struct {
 	Greeting string `json:"greeting"`
 }
 
 // Your method
-func Greeting(ctx context.Context, params io.Reader, result io.Writer) error {
-	var req GreetingReq
-	var res GreetingRes
+func Greeting(ctx context.Context, params *GreetingParams) (*GreetingResult, error) {
+	var result GreetingResult
 
-	// Decode request from reader
-	if err := json.NewDecoder(params).Decode(&req); err != nil {
-		return jsonrpc.ErrInvalidParams(err.Error())
+	log.Printf("incoming request with id %s", jsonrpc.RequestID(ctx))
+
+	if params.Name == "" {
+		params.Name = "stranger"
 	}
 
-	// Your logic
-	{
-		log.Printf("incoming request with id %s", jsonrpc.RequestID(ctx))
-		if req.Name == "" {
-			req.Name = "stranger"
-		}
-		res.Greeting = fmt.Sprintf("Hello, %s", req.Name)
-	}
+	res.Greeting = fmt.Sprintf("Hello, %s", params.Name)
 
-	// Encode response to writer
-	return json.NewEncoder(result).Encode(&res)
+	return &res
 }
 
 func main() {
 	repo := jsonrpc.New()
-	repo.RegisterMethod(jsonrpc.MethodFunc("greeting", Greeting))
+	repo.RegisterMethod("greeting", 
+		jsonrpc.CreateMethod(jsonrpc.FuncMethod[*GreetingParams, *GreetingResult](Greeting)))
 
 	http.Handle("/rpc", repo)
 	http.ListenAndServe(":8080", http.DefaultServeMux)
