@@ -9,7 +9,7 @@ const jsonrpcVersion = "2.0"
 
 // request represents a JSON-RPC request received by the server
 type request struct {
-	ID      *id             `json:"id,omitempty"`
+	ID      *ID             `json:"id,omitempty"`
 	Jsonrpc string          `json:"jsonrpc"`
 	Method  string          `json:"method"`
 	Params  json.RawMessage `json:"params,omitempty"`

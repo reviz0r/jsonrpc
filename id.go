@@ -6,29 +6,29 @@ import (
 	"strconv"
 )
 
-type id struct {
+type ID struct {
 	str      string
 	isQuoted bool
 }
 
-func IntID(num int) id {
-	return id{str: strconv.Itoa(num), isQuoted: false}
+func IntID(num int) ID {
+	return ID{str: strconv.Itoa(num), isQuoted: false}
 }
 
-func StringID(str string) id {
-	return id{str: str, isQuoted: true}
+func StringID(str string) ID {
+	return ID{str: str, isQuoted: true}
 }
 
-func (i id) String() string {
+func (i ID) String() string {
 	return i.str
 }
 
-func (i id) IsZero() bool {
+func (i ID) IsZero() bool {
 	return i.str == "" && i.isQuoted == false
 }
 
 // MarshalJSON implements json.Marshaler
-func (i id) MarshalJSON() ([]byte, error) {
+func (i ID) MarshalJSON() ([]byte, error) {
 	if i.IsZero() {
 		return json.RawMessage("null"), nil
 	}
@@ -42,7 +42,7 @@ func (i id) MarshalJSON() ([]byte, error) {
 }
 
 // UnmarshalJSON implements json.Unmarshaler
-func (i *id) UnmarshalJSON(data []byte) error {
+func (i *ID) UnmarshalJSON(data []byte) error {
 	var value any
 	if err := json.Unmarshal(data, &value); err != nil {
 		return err
@@ -54,10 +54,10 @@ func (i *id) UnmarshalJSON(data []byte) error {
 			return unmarshalIDError("float")
 		}
 
-		*i = id{str: strconv.Itoa(int(val)), isQuoted: false}
+		*i = ID{str: strconv.Itoa(int(val)), isQuoted: false}
 		return nil
 	case string:
-		*i = id{str: val, isQuoted: true}
+		*i = ID{str: val, isQuoted: true}
 		return nil
 
 	case bool:
@@ -76,6 +76,6 @@ func isInteger(val float64) bool {
 }
 
 func unmarshalIDError(Value string) *json.UnmarshalTypeError {
-	idType := reflect.TypeFor[*id]().Elem()
+	idType := reflect.TypeFor[*ID]().Elem()
 	return &json.UnmarshalTypeError{Value: Value, Type: idType}
 }
