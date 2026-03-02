@@ -3,120 +3,120 @@ package jsonrpc
 import (
 	"context"
 	"encoding/json"
-	"fmt"
-	"net/http"
-	"strings"
-	"sync"
+	"io"
+	"log/slog"
+	"time"
 )
 
-// Repo for storing methods
+type handler interface {
+	handle(ctx context.Context, in json.RawMessage) (json.RawMessage, error)
+}
+
 type Repo struct {
-	m       sync.RWMutex
-	methods map[string]Method
+	handlers map[string]handler
+	timeout  time.Duration
+
+	closeCh chan struct{}
 }
 
-// New repo
-func New() *Repo {
-	return &Repo{methods: make(map[string]Method)}
+func NewRepo(requestTimeout time.Duration) Repo {
+	return Repo{
+		handlers: make(map[string]handler),
+		timeout:  requestTimeout,
+		closeCh:  make(chan struct{}),
+	}
 }
 
-// RegisterMethod registers method in repo
-func (repo *Repo) RegisterMethod(method Method) {
-	repo.m.Lock()
-	defer repo.m.Unlock()
-
-	repo.methods[method.Name()] = method
+func (s *Repo) RegisterMethod(name string, handler handler) {
+	s.handlers[name] = handler
 }
 
-// UnregisterMethod removes method by name
-func (repo *Repo) UnregisterMethod(name string) {
-	repo.m.Lock()
-	defer repo.m.Unlock()
+var _ io.Closer = new(Repo)
 
-	delete(repo.methods, name)
+func (s *Repo) Close() error {
+	s.closeCh <- struct{}{}
+	close(s.closeCh)
+	return nil
 }
 
-// takeMethod gives method by name
-func (repo *Repo) takeMethod(methodName string) (Method, bool) {
-	repo.m.RLock()
-	defer repo.m.RUnlock()
-
-	fn, exist := repo.methods[methodName]
-	return fn, exist
-}
-
-// ServeHTTP implement http.Handler for handling JSON-RPC requests
-func (repo *Repo) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func (s *Repo) Handle(ctx context.Context, in json.RawMessage) (json.RawMessage, error) {
 	var req request
-	var res response
 
-	w.Header().Set(contentType, contentTypeJSON)
-
-	if !strings.HasPrefix(r.Header.Get(contentType), contentTypeJSON) {
-		err := fmt.Errorf("%s must be %s", contentType, contentTypeJSON)
-		sendError(w, false, req.ID, ErrParseError(err.Error()))
-		return
-	}
-
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	err := json.Unmarshal(in, &req)
+	if err != nil {
 		if _, ok := err.(*json.UnmarshalTypeError); ok {
-			sendError(w, false, req.ID, ErrInvalidRequest(err.Error()))
+			return responseWithError(req.ID, false, ErrInvalidRequest(err.Error()))
 		} else {
-			sendError(w, false, req.ID, ErrParseError(err.Error()))
+			return responseWithError(req.ID, false, ErrParseError(err.Error()))
 		}
-		return
-	}
-	defer r.Body.Close()
-
-	if err := req.validate(); err != nil {
-		sendError(w, req.isNotification(), req.ID, ErrInvalidRequest(err.Error()))
-		return
 	}
 
-	method, exist := repo.takeMethod(req.Method)
-	if !exist {
-		sendError(w, req.isNotification(), req.ID, ErrMethodNotFound(nil))
-		return
+	err = req.validate()
+	if err != nil {
+		return responseWithError(req.ID, req.isNotification(), ErrInvalidRequest(err.Error()))
 	}
 
-	res.ID = req.ID
-	res.Jsonprc = jsonrpcVersion
+	method, found := s.handlers[req.Method]
+	if !found {
+		return responseWithError(req.ID, req.isNotification(), ErrMethodNotFound(nil))
+	}
 
-	ctx := context.WithValue(r.Context(), requestID, req.ID)
+	if req.ID != nil {
+		ctx = requestIDToContext(ctx, *req.ID)
+	}
 
-	if methoderr := method.Handle(ctx, &req, &res); methoderr != nil {
+	result, methoderr := method.handle(ctx, req.Params)
+	if methoderr != nil {
 		if err, ok := methoderr.(*Error); ok {
-			sendError(w, req.isNotification(), req.ID, err)
+			return responseWithError(req.ID, req.isNotification(), err)
 		} else {
-			sendError(w, req.isNotification(), req.ID, ErrInternalError(methoderr.Error()))
+			return responseWithError(req.ID, req.isNotification(), ErrInternalError(methoderr.Error()))
 		}
-		return
 	}
 
 	if req.isNotification() {
-		w.WriteHeader(http.StatusOK)
-	} else {
-		if err := json.NewEncoder(w).Encode(&res); err != nil {
-			sendError(w, req.isNotification(), req.ID, ErrInternalError(err.Error()))
-			return
-		}
+		return nil, nil
 	}
+
+	return responseWithResult(req.ID, result)
 }
 
-// sendError in response
-func sendError(w http.ResponseWriter, isNotification bool, id *id, err *Error) {
-	res := response{
-		ID:      id,
-		Jsonprc: jsonrpcVersion,
-		Error:   err,
-	}
+func (s *Repo) Listen(conn io.ReadWriteCloser) {
+	for {
+		select {
+		case <-s.closeCh:
+			err := conn.Close()
+			if err != nil {
+				slog.Warn("jsonrpc: close connection", "error", err.Error())
+			}
 
-	if isNotification {
-		w.WriteHeader(http.StatusOK)
-	} else {
-		encodeErr := json.NewEncoder(w).Encode(res)
-		if encodeErr != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			return
+
+		default:
+			ctx := context.Background()
+
+			msg, err := io.ReadAll(conn)
+			if err != nil {
+				slog.WarnContext(ctx, "jsonrpc: read request", "error", err.Error())
+				continue
+			}
+
+			go func(ctx context.Context) {
+				ctx, cancel := context.WithTimeout(ctx, s.timeout)
+				defer cancel()
+
+				result, err := s.Handle(ctx, msg)
+				if err != nil {
+					slog.WarnContext(ctx, "jsonrpc: hanlde request", "error", err.Error())
+					return
+				}
+
+				_, err = conn.Write(result)
+				if err != nil {
+					slog.WarnContext(ctx, "jsonrpc: write response", "error", err.Error())
+					return
+				}
+			}(ctx)
 		}
 	}
 }

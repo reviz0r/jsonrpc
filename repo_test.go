@@ -1,46 +1,63 @@
-package jsonrpc
+package jsonrpc_test
 
 import (
-	"bytes"
+	"context"
 	"encoding/json"
-	"net/http"
-	"net/http/httptest"
 	"testing"
+	"time"
+
+	"github.com/reviz0r/jsonrpc"
 
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+// response for tests
+type response struct {
+	ID      json.RawMessage `json:"id"`
+	Jsonprc string          `json:"jsonrpc"`
+	Result  json.RawMessage `json:"result,omitempty"`
+	Error   jsonrpc.Error   `json:"error,omitempty"`
+}
+
 func TestRepoHandler(t *testing.T) {
 	testCases := []struct {
 		desc           string
-		methods        []Method
+		register       func(jsonrpc.Repo)
 		req            string
 		wantRes        string
 		isNotification bool
 	}{
 		// Test cases take from https://www.jsonrpc.org/specification
 		{
-			desc:    "1. rpc call with positional parameters",
-			methods: []Method{MethodFunc("subtract", SubtractPositional)},
+			desc: "1. rpc call with positional parameters",
+			register: func(s jsonrpc.Repo) {
+				s.RegisterMethod("subtract", jsonrpc.CreateMethod(SubtractPositional{}))
+			},
 			req:     `{"jsonrpc": "2.0", "method": "subtract", "params": [42, 23], "id": 1}`,
 			wantRes: `{"jsonrpc": "2.0", "result": 19, "id": 1}`,
 		},
 		{
-			desc:    "2. rpc call with positional parameters",
-			methods: []Method{MethodFunc("subtract", SubtractPositional)},
+			desc: "2. rpc call with positional parameters",
+			register: func(s jsonrpc.Repo) {
+				s.RegisterMethod("subtract", jsonrpc.CreateMethod(SubtractPositional{}))
+			},
 			req:     `{"jsonrpc": "2.0", "method": "subtract", "params": [23, 42], "id": 2}`,
 			wantRes: `{"jsonrpc": "2.0", "result": -19, "id": 2}`,
 		},
 		{
-			desc:    "3. rpc call with named parameters",
-			methods: []Method{MethodFunc("subtract", SubtractNamed)},
+			desc: "3. rpc call with named parameters",
+			register: func(s jsonrpc.Repo) {
+				s.RegisterMethod("subtract", jsonrpc.CreateMethod(SubtractNamed{}))
+			},
 			req:     `{"jsonrpc": "2.0", "method": "subtract", "params": {"subtrahend": 23, "minuend": 42}, "id": 3}`,
 			wantRes: `{"jsonrpc": "2.0", "result": 19, "id": 3}`,
 		},
 		{
-			desc:    "4. rpc call with named parameters",
-			methods: []Method{MethodFunc("subtract", SubtractNamed)},
+			desc: "4. rpc call with named parameters",
+			register: func(s jsonrpc.Repo) {
+				s.RegisterMethod("subtract", jsonrpc.CreateMethod(SubtractNamed{}))
+			},
 			req:     `{"jsonrpc": "2.0", "method": "subtract", "params": {"minuend": 42, "subtrahend": 23}, "id": 4}`,
 			wantRes: `{"jsonrpc": "2.0", "result": 19, "id": 4}`,
 		},
@@ -77,6 +94,11 @@ func TestRepoHandler(t *testing.T) {
 			isNotification: true,
 		},
 		{
+			desc:    "rpc call with invalid Request id (bool)",
+			req:     `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": true}`,
+			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}`,
+		},
+		{
 			desc:    "rpc call with invalid Request id (float)",
 			req:     `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": 1.1}`,
 			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}`,
@@ -94,40 +116,34 @@ func TestRepoHandler(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			// init server
-			repo := New()
-			for _, method := range tC.methods {
-				repo.RegisterMethod(method)
+			server := jsonrpc.NewRepo(time.Second)
+
+			if tC.register != nil {
+				tC.register(server)
 			}
-			server := httptest.NewServer(repo)
-			defer server.Close()
 
-			// make http request
-			res, err := http.Post(server.URL, "application/json", bytes.NewBufferString(tC.req))
+			res, err := server.Handle(context.Background(), json.RawMessage(tC.req))
 			require.NoError(t, err)
-			require.Equal(t, http.StatusOK, res.StatusCode)
-			defer res.Body.Close()
 
-			// decode result
-			var got response
-			err = json.NewDecoder(res.Body).Decode(&got)
 			if tC.isNotification {
-				require.EqualError(t, err, "EOF") // no response body for notifications
+				assert.Nil(t, res)
 				return
 			}
+
+			var wantRes, gotRes response
+
+			err = json.Unmarshal(res, &gotRes)
 			require.NoError(t, err)
-			if got.Error != nil {
-				t.Logf("error data: %v", got.Error.Data)
-				got.Error.Data = nil // error data is empty in test cases
+
+			err = json.Unmarshal([]byte(tC.wantRes), &wantRes)
+			require.NoError(t, err)
+
+			if gotRes.Error != (jsonrpc.Error{}) {
+				t.Logf("error data: %v", gotRes.Error.Data)
+				gotRes.Error.Data = nil // error data is empty in test cases
 			}
 
-			// decode wanted result
-			var want response
-			err = json.Unmarshal([]byte(tC.wantRes), &want)
-			require.NoError(t, err)
-
-			// compare results
-			assert.Equal(t, want, got)
+			assert.Equal(t, wantRes, gotRes)
 		})
 	}
 }
