@@ -35,7 +35,7 @@ func (e errorCode) String() string {
 
 // ErrParseError Invalid JSON was received by the server.
 // An error occurred on the server while parsing the JSON text.
-func ErrParseError(data interface{}) *Error {
+func ErrParseError(data any) *Error {
 	return &Error{
 		Code:    parseError.Int(),
 		Message: parseError.String(),
@@ -44,7 +44,7 @@ func ErrParseError(data interface{}) *Error {
 }
 
 // ErrInvalidRequest The JSON sent is not a valid Request object.
-func ErrInvalidRequest(data interface{}) *Error {
+func ErrInvalidRequest(data any) *Error {
 	return &Error{
 		Code:    invalidRequest.Int(),
 		Message: invalidRequest.String(),
@@ -53,7 +53,7 @@ func ErrInvalidRequest(data interface{}) *Error {
 }
 
 // ErrMethodNotFound The method does not exist / is not available.
-func ErrMethodNotFound(data interface{}) *Error {
+func ErrMethodNotFound(data any) *Error {
 	return &Error{
 		Code:    methodNotFound.Int(),
 		Message: methodNotFound.String(),
@@ -62,7 +62,7 @@ func ErrMethodNotFound(data interface{}) *Error {
 }
 
 // ErrInvalidParams Invalid method parameter(s).
-func ErrInvalidParams(data interface{}) *Error {
+func ErrInvalidParams(data any) *Error {
 	return &Error{
 		Code:    invalidParams.Int(),
 		Message: invalidParams.String(),
@@ -71,7 +71,7 @@ func ErrInvalidParams(data interface{}) *Error {
 }
 
 // ErrInternalError Internal JSON-RPC error.
-func ErrInternalError(data interface{}) *Error {
+func ErrInternalError(data any) *Error {
 	return &Error{
 		Code:    internalError.Int(),
 		Message: internalError.String(),
