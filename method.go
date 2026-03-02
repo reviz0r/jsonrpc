@@ -2,29 +2,29 @@ package jsonrpc
 
 import (
 	"context"
-	"io"
+	"errors"
 )
 
-// Method jsonrpc
-type Method interface {
-	Name() string
-	Handle(ctx context.Context, params io.Reader, result io.Writer) error
+type Method[P, R any] interface {
+	Call(context.Context, P) (R, error)
 }
 
-type method struct {
-	name string
-	fn   func(ctx context.Context, params io.Reader, result io.Writer) error
+func CreateMethod[P, R any](method Method[P, R]) handler {
+	return handlerImpl[P, R]{method: method}
 }
 
-func (m *method) Name() string {
-	return m.name
+var _ Method[any, any] = UnimplementedMethod[any, any]{}
+
+type UnimplementedMethod[P, R any] struct{}
+
+func (m UnimplementedMethod[P, R]) Call(ctx context.Context, params P) (result R, err error) {
+	return result, errors.ErrUnsupported
 }
 
-func (m *method) Handle(ctx context.Context, params io.Reader, result io.Writer) error {
-	return m.fn(ctx, params, result)
-}
+var _ Method[any, any] = FuncMethod[any, any](nil)
 
-// MethodFunc wrap func to implement interface Method
-func MethodFunc(name string, fn func(ctx context.Context, params io.Reader, result io.Writer) error) Method {
-	return &method{name, fn}
+type FuncMethod[P, R any] func(context.Context, P) (R, error)
+
+func (m FuncMethod[P, R]) Call(ctx context.Context, params P) (R, error) {
+	return m(ctx, params)
 }
