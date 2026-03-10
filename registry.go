@@ -12,34 +12,34 @@ type handler interface {
 	handle(ctx context.Context, in json.RawMessage) (json.RawMessage, error)
 }
 
-type Repo struct {
+type Registry struct {
 	handlers map[string]handler
 	timeout  time.Duration
 
 	closeCh chan struct{}
 }
 
-func New(requestTimeout time.Duration) Repo {
-	return Repo{
+func New(requestTimeout time.Duration) Registry {
+	return Registry{
 		handlers: make(map[string]handler),
 		timeout:  requestTimeout,
 		closeCh:  make(chan struct{}),
 	}
 }
 
-func (s *Repo) RegisterMethod(name string, handler handler) {
-	s.handlers[name] = handler
+func (r *Registry) RegisterMethod(name string, handler handler) {
+	r.handlers[name] = handler
 }
 
-var _ io.Closer = new(Repo)
+var _ io.Closer = new(Registry)
 
-func (s *Repo) Close() error {
-	s.closeCh <- struct{}{}
-	close(s.closeCh)
+func (r *Registry) Close() error {
+	r.closeCh <- struct{}{}
+	close(r.closeCh)
 	return nil
 }
 
-func (s *Repo) Handle(ctx context.Context, in json.RawMessage) (json.RawMessage, error) {
+func (r *Registry) Handle(ctx context.Context, in json.RawMessage) (json.RawMessage, error) {
 	var req request
 
 	err := json.Unmarshal(in, &req)
@@ -56,7 +56,7 @@ func (s *Repo) Handle(ctx context.Context, in json.RawMessage) (json.RawMessage,
 		return responseWithError(req.ID, req.isNotification(), ErrInvalidRequest(err.Error()))
 	}
 
-	method, found := s.handlers[req.Method]
+	method, found := r.handlers[req.Method]
 	if !found {
 		return responseWithError(req.ID, req.isNotification(), ErrMethodNotFound(nil))
 	}
@@ -81,10 +81,10 @@ func (s *Repo) Handle(ctx context.Context, in json.RawMessage) (json.RawMessage,
 	return responseWithResult(req.ID, result)
 }
 
-func (s *Repo) Listen(conn io.ReadWriteCloser) {
+func (r *Registry) Listen(conn io.ReadWriteCloser) {
 	for {
 		select {
-		case <-s.closeCh:
+		case <-r.closeCh:
 			err := conn.Close()
 			if err != nil {
 				slog.Warn("jsonrpc: close connection", "error", err.Error())
@@ -102,12 +102,12 @@ func (s *Repo) Listen(conn io.ReadWriteCloser) {
 			}
 
 			go func(ctx context.Context) {
-				ctx, cancel := context.WithTimeout(ctx, s.timeout)
+				ctx, cancel := context.WithTimeout(ctx, r.timeout)
 				defer cancel()
 
-				result, err := s.Handle(ctx, msg)
+				result, err := r.Handle(ctx, msg)
 				if err != nil {
-					slog.WarnContext(ctx, "jsonrpc: hanlde request", "error", err.Error())
+					slog.WarnContext(ctx, "jsonrpc: handle request", "error", err.Error())
 					return
 				}
 
