@@ -9,10 +9,6 @@ import (
 	"sync"
 )
 
-type RequestIDGenerator interface {
-	Generate() ID
-}
-
 type Client struct {
 	conn io.ReadWriteCloser
 
