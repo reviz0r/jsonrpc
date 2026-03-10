@@ -20,7 +20,7 @@ type response struct {
 	Error   jsonrpc.Error   `json:"error,omitempty"`
 }
 
-func TestRepoHandler(t *testing.T) {
+func TestRegistry_Handle(t *testing.T) {
 	testCases := []struct {
 		desc           string
 		register       func(jsonrpc.Registry)
