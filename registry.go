@@ -19,12 +19,15 @@ type Registry struct {
 	closeCh chan struct{}
 }
 
-func New(requestTimeout time.Duration) Registry {
+func New() Registry {
 	return Registry{
 		handlers: make(map[string]handler),
-		timeout:  requestTimeout,
 		closeCh:  make(chan struct{}),
 	}
+}
+
+func (r *Registry) SetTimeout(timeout time.Duration) {
+	r.timeout = timeout
 }
 
 func (r *Registry) RegisterMethod(name string, handler handler) {
@@ -102,7 +105,13 @@ func (r *Registry) Listen(conn io.ReadWriteCloser) {
 			}
 
 			go func(ctx context.Context) {
-				ctx, cancel := context.WithTimeout(ctx, r.timeout)
+				var cancel context.CancelFunc
+
+				if r.timeout > 0 {
+					ctx, cancel = context.WithTimeout(ctx, r.timeout)
+				} else {
+					ctx, cancel = context.WithCancel(ctx)
+				}
 				defer cancel()
 
 				result, err := r.Handle(ctx, msg)

@@ -116,7 +116,8 @@ func TestRepoHandler(t *testing.T) {
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			registry := jsonrpc.New(time.Second)
+			registry := jsonrpc.New()
+			registry.SetTimeout(time.Second)
 
 			if tC.register != nil {
 				tC.register(registry)
