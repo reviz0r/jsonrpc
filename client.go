@@ -4,29 +4,29 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log/slog"
 	"sync"
+
+	"github.com/gorilla/websocket"
 )
 
 type Client struct {
-	conn io.ReadWriteCloser
+	writeMutex sync.Mutex
+	conn       *websocket.Conn
 
 	m  sync.Mutex
 	ch map[ID]chan json.RawMessage
 
 	idGenerator RequestIDGenerator
-	closeCh     chan struct{}
 }
 
-func NewClient(conn io.ReadWriteCloser, ig RequestIDGenerator) *Client {
+func NewClient(conn *websocket.Conn, ig RequestIDGenerator) *Client {
 	cl := &Client{
 		conn:        conn,
 		ch:          make(map[ID]chan json.RawMessage),
 		idGenerator: ig,
-		closeCh:     make(chan struct{}),
 	}
-	go cl.listenResponses()
+	go cl.readResponses()
 	return cl
 }
 
@@ -46,30 +46,45 @@ func (c *Client) getChan(id ID) chan json.RawMessage {
 	return ch
 }
 
-func (c *Client) listenResponses() {
+func (c *Client) writeMessage(conn *websocket.Conn, messageType int, data []byte) error {
+	c.writeMutex.Lock()
+	defer c.writeMutex.Unlock()
+
+	return conn.WriteMessage(messageType, data)
+}
+
+func (c *Client) readResponses() {
+	defer c.Close()
+
 	for {
-		select {
-		case <-c.closeCh:
+		msgType, msg, err := c.conn.ReadMessage()
+		if err != nil {
+			slog.Warn("jsonrpc: read response", "error", err.Error())
+
 			return
-		default:
-			msg, err := io.ReadAll(c.conn)
-			if err != nil {
-				slog.Warn("jsonrpc: read response", "error", err.Error())
-				return
-			}
+		}
 
-			var response response
-			err = json.Unmarshal(msg, &response)
-			if err != nil {
-				slog.Warn("jsonrpc: unmarshal response", "error", err.Error())
-				continue
-			}
+		if msgType != websocket.TextMessage {
+			slog.Warn("jsonrpc: invalid message type")
 
-			if response.ID == nil {
-				continue
-			}
+			return
+		}
 
-			ch := c.getChan(*response.ID)
+		var response response
+
+		err = json.Unmarshal(msg, &response)
+		if err != nil {
+			slog.Warn("jsonrpc: unmarshal response", "error", err.Error())
+
+			continue
+		}
+
+		if response.ID == nil {
+			continue
+		}
+
+		ch := c.getChan(*response.ID)
+		if ch != nil {
 			ch <- msg
 			close(ch)
 		}
@@ -77,12 +92,15 @@ func (c *Client) listenResponses() {
 }
 
 func (c *Client) Close() error {
-	c.closeCh <- struct{}{}
-	close(c.closeCh)
-
 	err := c.conn.Close()
+
+	for id := range c.ch {
+		ch := c.getChan(id)
+		close(ch)
+	}
+
 	if err != nil {
-		return fmt.Errorf("jsonrpc: close connection: %w", err)
+		return fmt.Errorf("jsonrpc: close client conn: %w", err)
 	}
 
 	return nil
@@ -102,10 +120,10 @@ func Call[R, P any](c *Client, ctx context.Context, methodName string, params P)
 		return result, fmt.Errorf("jsonrpc: marshal request: %w", err)
 	}
 
-	ch := make(chan json.RawMessage)
+	ch := make(chan json.RawMessage, 1)
 	c.addChan(requestID, ch)
 
-	_, err = c.conn.Write(rawRequest)
+	err = c.writeMessage(c.conn, websocket.TextMessage, rawRequest)
 	if err != nil {
 		_ = c.getChan(requestID) // убираем канал из ожидания ответа
 		return result, fmt.Errorf("jsonrpc: send request: %w", err)
@@ -113,6 +131,10 @@ func Call[R, P any](c *Client, ctx context.Context, methodName string, params P)
 
 	select {
 	case rawResponse := <-ch:
+		if rawResponse == nil {
+			return result, ErrClientClosed
+		}
+
 		var response response
 		err := json.Unmarshal(rawResponse, &response)
 		if err != nil {
@@ -130,6 +152,7 @@ func Call[R, P any](c *Client, ctx context.Context, methodName string, params P)
 
 		return result, nil
 	case <-ctx.Done():
+		_ = c.getChan(requestID) // убираем канал из ожидания ответа
 		return result, ctx.Err()
 	}
 }
