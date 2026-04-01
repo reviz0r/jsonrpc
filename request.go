@@ -1,9 +1,6 @@
 package jsonrpc
 
-import (
-	"encoding/json"
-	"errors"
-)
+import "encoding/json"
 
 const jsonrpcVersion = "2.0"
 
@@ -33,11 +30,11 @@ func (r *request) isMethodEmpty() bool {
 // validate Корректный ли запрос
 func (r *request) validate() error {
 	if !r.isValidVersion() {
-		return errors.New("jsonrpc: invalid version")
+		return errInvalidVersion
 	}
 
 	if r.isMethodEmpty() {
-		return errors.New("jsonrpc: method is empty")
+		return errEmptyMethod
 	}
 
 	return nil
