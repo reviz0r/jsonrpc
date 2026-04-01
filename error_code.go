@@ -15,16 +15,16 @@ func (e errorCode) Int() int {
 	return int(e)
 }
 
-func (e errorCode) String() string {
-	messages := map[int]string{
-		parseError.Int():     "Parse error",
-		invalidRequest.Int(): "Invalid Request",
-		methodNotFound.Int(): "Method not found",
-		invalidParams.Int():  "Invalid params",
-		internalError.Int():  "Internal error",
-		serverError.Int():    "Server error",
-	}
+var messages = map[int]string{
+	parseError.Int():     "Parse error",
+	invalidRequest.Int(): "Invalid Request",
+	methodNotFound.Int(): "Method not found",
+	invalidParams.Int():  "Invalid params",
+	internalError.Int():  "Internal error",
+	serverError.Int():    "Server error",
+}
 
+func (e errorCode) String() string {
 	message, exist := messages[e.Int()]
 	if !exist {
 		return ""
