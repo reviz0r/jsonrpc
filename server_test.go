@@ -20,10 +20,10 @@ type response struct {
 	Error   jsonrpc.Error   `json:"error,omitempty"`
 }
 
-func TestRegistry_Handle(t *testing.T) {
+func TestServer_Handle(t *testing.T) {
 	testCases := []struct {
 		desc           string
-		register       func(jsonrpc.Registry)
+		register       func(*jsonrpc.Server)
 		req            string
 		wantRes        string
 		isNotification bool
@@ -31,32 +31,32 @@ func TestRegistry_Handle(t *testing.T) {
 		// Test cases take from https://www.jsonrpc.org/specification
 		{
 			desc: "1. rpc call with positional parameters",
-			register: func(r jsonrpc.Registry) {
-				r.RegisterMethod("subtract", jsonrpc.CreateMethod(SubtractPositional{}))
+			register: func(s *jsonrpc.Server) {
+				s.RegisterMethod("subtract", jsonrpc.CreateMethod(SubtractPositional{}))
 			},
 			req:     `{"jsonrpc": "2.0", "method": "subtract", "params": [42, 23], "id": 1}`,
 			wantRes: `{"jsonrpc": "2.0", "result": 19, "id": 1}`,
 		},
 		{
 			desc: "2. rpc call with positional parameters",
-			register: func(r jsonrpc.Registry) {
-				r.RegisterMethod("subtract", jsonrpc.CreateMethod(SubtractPositional{}))
+			register: func(s *jsonrpc.Server) {
+				s.RegisterMethod("subtract", jsonrpc.CreateMethod(SubtractPositional{}))
 			},
 			req:     `{"jsonrpc": "2.0", "method": "subtract", "params": [23, 42], "id": 2}`,
 			wantRes: `{"jsonrpc": "2.0", "result": -19, "id": 2}`,
 		},
 		{
 			desc: "3. rpc call with named parameters",
-			register: func(r jsonrpc.Registry) {
-				r.RegisterMethod("subtract", jsonrpc.CreateMethod(SubtractNamed{}))
+			register: func(s *jsonrpc.Server) {
+				s.RegisterMethod("subtract", jsonrpc.CreateMethod(SubtractNamed{}))
 			},
 			req:     `{"jsonrpc": "2.0", "method": "subtract", "params": {"subtrahend": 23, "minuend": 42}, "id": 3}`,
 			wantRes: `{"jsonrpc": "2.0", "result": 19, "id": 3}`,
 		},
 		{
 			desc: "4. rpc call with named parameters",
-			register: func(r jsonrpc.Registry) {
-				r.RegisterMethod("subtract", jsonrpc.CreateMethod(SubtractNamed{}))
+			register: func(s *jsonrpc.Server) {
+				s.RegisterMethod("subtract", jsonrpc.CreateMethod(SubtractNamed{}))
 			},
 			req:     `{"jsonrpc": "2.0", "method": "subtract", "params": {"minuend": 42, "subtrahend": 23}, "id": 4}`,
 			wantRes: `{"jsonrpc": "2.0", "result": 19, "id": 4}`,
@@ -113,17 +113,27 @@ func TestRegistry_Handle(t *testing.T) {
 			req:     `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": {"foo": "bar"}}`,
 			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}`,
 		},
+		{
+			desc:    "rpc call with invalid Request id (string with quote)",
+			req:     `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": "va"lue"}`,
+			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error"}, "id": null}`,
+		},
+		{
+			desc:    "rpc call with invalid Request id (string with escaped quote)",
+			req:     `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": "va\"lue"}`,
+			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32601, "message": "Method not found"}, "id": "va\"lue"}`,
+		},
 	}
 	for _, tC := range testCases {
 		t.Run(tC.desc, func(t *testing.T) {
-			registry := jsonrpc.New()
-			registry.SetTimeout(time.Second)
+			server := jsonrpc.NewServer()
+			server.SetTimeout(time.Second)
 
 			if tC.register != nil {
-				tC.register(registry)
+				tC.register(server)
 			}
 
-			res, err := registry.Handle(context.Background(), json.RawMessage(tC.req))
+			res, err := server.Handle(context.Background(), json.RawMessage(tC.req))
 			require.NoError(t, err)
 
 			if tC.isNotification {
