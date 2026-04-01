@@ -75,7 +75,7 @@ func isInteger(val float64) bool {
 	return val == float64(int(val))
 }
 
-func unmarshalIDError(Value string) *json.UnmarshalTypeError {
+func unmarshalIDError(value string) *json.UnmarshalTypeError {
 	idType := reflect.TypeFor[*ID]().Elem()
-	return &json.UnmarshalTypeError{Value: Value, Type: idType}
+	return &json.UnmarshalTypeError{Value: value, Type: idType}
 }
