@@ -2,6 +2,7 @@ package jsonrpc
 
 import (
 	"encoding/json"
+	"fmt"
 	"reflect"
 	"strconv"
 )
@@ -45,7 +46,7 @@ func (i ID) MarshalJSON() ([]byte, error) {
 func (i *ID) UnmarshalJSON(data []byte) error {
 	var value any
 	if err := json.Unmarshal(data, &value); err != nil {
-		return err
+		return fmt.Errorf("jsonrpc: unmarshal ID type: %w", err)
 	}
 
 	switch val := value.(type) {
