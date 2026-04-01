@@ -14,6 +14,7 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/reviz0r/jsonrpc"
+	"github.com/reviz0r/jsonrpc/gorilla"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -55,7 +56,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("dial to websocket server: %s", err.Error())
 	}
 
-	jclient := jsonrpc.NewClient(conn, jsonrpc.NewIntGenerator())
+	jclient := jsonrpc.NewClient(gorilla.NewWsConn(conn), jsonrpc.NewIntGenerator())
 	defer jclient.Close()
 
 	client = jclient

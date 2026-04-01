@@ -4,15 +4,13 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log/slog"
 	"sync"
-
-	"github.com/gorilla/websocket"
 )
 
 type Client struct {
-	writeMutex sync.Mutex
-	conn       *websocket.Conn
+	conn io.ReadWriteCloser
 
 	m  sync.Mutex
 	ch map[ID]chan json.RawMessage
@@ -20,7 +18,7 @@ type Client struct {
 	idGenerator RequestIDGenerator
 }
 
-func NewClient(conn *websocket.Conn, ig RequestIDGenerator) *Client {
+func NewClient(conn io.ReadWriteCloser, ig RequestIDGenerator) *Client {
 	cl := &Client{
 		conn:        conn,
 		ch:          make(map[ID]chan json.RawMessage),
@@ -46,26 +44,13 @@ func (c *Client) getChan(id ID) chan json.RawMessage {
 	return ch
 }
 
-func (c *Client) writeMessage(conn *websocket.Conn, messageType int, data []byte) error {
-	c.writeMutex.Lock()
-	defer c.writeMutex.Unlock()
-
-	return conn.WriteMessage(messageType, data)
-}
-
 func (c *Client) readResponses() {
 	defer c.Close()
 
 	for {
-		msgType, msg, err := c.conn.ReadMessage()
+		msg, err := io.ReadAll(c.conn)
 		if err != nil {
 			slog.Warn("jsonrpc: read response", "error", err.Error())
-
-			return
-		}
-
-		if msgType != websocket.TextMessage {
-			slog.Warn("jsonrpc: invalid message type")
 
 			return
 		}
@@ -123,7 +108,7 @@ func Call[R, P any](c *Client, ctx context.Context, methodName string, params P)
 	ch := make(chan json.RawMessage, 1)
 	c.addChan(requestID, ch)
 
-	err = c.writeMessage(c.conn, websocket.TextMessage, rawRequest)
+	_, err = c.conn.Write(rawRequest)
 	if err != nil {
 		_ = c.getChan(requestID) // убираем канал из ожидания ответа
 		return result, fmt.Errorf("jsonrpc: send request: %w", err)
