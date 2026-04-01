@@ -35,7 +35,7 @@ func (h *wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go h.server.Serve(conn)
+	go h.server.Serve(gorilla.NewWsConn(conn))
 }
 
 var client *jsonrpc.Client

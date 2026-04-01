@@ -8,8 +8,6 @@ import (
 	"log/slog"
 	"sync"
 	"time"
-
-	"github.com/gorilla/websocket"
 )
 
 type handler interface {
@@ -20,8 +18,6 @@ type Server struct {
 	m        sync.Mutex
 	handlers map[string]handler
 	timeout  time.Duration
-
-	writeMutex sync.Mutex
 
 	closeCh chan struct{}
 }
@@ -98,18 +94,10 @@ func (s *Server) Handle(ctx context.Context, in json.RawMessage) (json.RawMessag
 	return responseWithResult(req.ID, result)
 }
 
-func (s *Server) writeMessage(conn *websocket.Conn, messageType int, data []byte) error {
-	s.writeMutex.Lock()
-	defer s.writeMutex.Unlock()
-
-	//nolint:wrapcheck // Wrap on caller side
-	return conn.WriteMessage(messageType, data)
-}
-
-func (s *Server) Serve(conn *websocket.Conn) {
+func (s *Server) Serve(conn io.ReadWriteCloser) {
 	defer s.Close()
 
-	go func(c *websocket.Conn) {
+	go func(c io.ReadWriteCloser) {
 		<-s.closeCh
 		c.Close()
 	}(conn)
@@ -117,15 +105,9 @@ func (s *Server) Serve(conn *websocket.Conn) {
 	for {
 		ctx := context.Background()
 
-		msgType, msg, err := conn.ReadMessage()
+		msg, err := io.ReadAll(conn)
 		if err != nil {
 			slog.WarnContext(ctx, "jsonrpc: read request", "error", err.Error())
-
-			return
-		}
-
-		if msgType != websocket.TextMessage {
-			slog.Warn("jsonrpc: invalid message type")
 
 			return
 		}
@@ -154,7 +136,7 @@ func (s *Server) Serve(conn *websocket.Conn) {
 				return
 			}
 
-			err = s.writeMessage(conn, websocket.TextMessage, result)
+			_, err = conn.Write(result)
 			if err != nil {
 				slog.WarnContext(ctx, "jsonrpc: write response", "error", err.Error())
 
