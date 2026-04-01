@@ -15,7 +15,7 @@ import (
 // response for tests
 type response struct {
 	ID      json.RawMessage `json:"id"`
-	Jsonprc string          `json:"jsonrpc"`
+	Jsonrpc string          `json:"jsonrpc"`
 	Result  json.RawMessage `json:"result,omitempty"`
 	Error   jsonrpc.Error   `json:"error,omitempty"`
 }
