@@ -101,10 +101,10 @@ func Call[R, P any](c *Client, ctx context.Context, methodName string, params P)
 
 	ch := make(chan json.RawMessage, 1)
 	c.addChan(requestID, ch)
+	defer c.getChan(requestID) // убираем канал из ожидания ответа
 
 	err = json.NewEncoder(c.conn).Encode(request)
 	if err != nil {
-		_ = c.getChan(requestID) // убираем канал из ожидания ответа
 		return result, fmt.Errorf("jsonrpc: marshal request to conn: %w", err)
 	}
 
@@ -131,7 +131,6 @@ func Call[R, P any](c *Client, ctx context.Context, methodName string, params P)
 
 		return result, nil
 	case <-ctx.Done():
-		_ = c.getChan(requestID) // убираем канал из ожидания ответа
 		return result, ctx.Err()
 	}
 }
