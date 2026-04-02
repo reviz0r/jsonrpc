@@ -115,8 +115,8 @@ func Call[R, P any](c *Client, ctx context.Context, methodName string, params P)
 	}
 
 	select {
-	case rawResponse := <-ch:
-		if rawResponse == nil {
+	case rawResponse, isSuccess := <-ch:
+		if !isSuccess {
 			return result, ErrClientClosed
 		}
 
