@@ -99,18 +99,13 @@ func Call[R, P any](c *Client, ctx context.Context, methodName string, params P)
 	requestID := c.idGenerator.Generate()
 	request := request{ID: &requestID, Jsonrpc: jsonrpcVersion, Method: methodName, Params: rawParams}
 
-	rawRequest, err := json.Marshal(request)
-	if err != nil {
-		return result, fmt.Errorf("jsonrpc: marshal request: %w", err)
-	}
-
 	ch := make(chan json.RawMessage, 1)
 	c.addChan(requestID, ch)
 
-	_, err = c.conn.Write(rawRequest)
+	err = json.NewEncoder(c.conn).Encode(request)
 	if err != nil {
 		_ = c.getChan(requestID) // убираем канал из ожидания ответа
-		return result, fmt.Errorf("jsonrpc: send request: %w", err)
+		return result, fmt.Errorf("jsonrpc: marshal request to conn: %w", err)
 	}
 
 	select {
