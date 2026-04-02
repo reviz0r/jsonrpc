@@ -1,4 +1,4 @@
-package jsonrpc_test
+package gorilla_test
 
 import (
 	"context"
@@ -42,8 +42,9 @@ var client *jsonrpc.Client
 
 func TestMain(m *testing.M) {
 	jserver := jsonrpc.NewServer()
-	jserver.RegisterMethod("subtract", jsonrpc.CreateMethod(SubtractPositional{}))
-	jserver.RegisterMethod("panic", jsonrpc.CreateMethod(PanicMethod{}))
+	jserver.RegisterMethod("subtract_positional", jsonrpc.CreateMethod(SubtractPositional{}))
+	jserver.RegisterMethod("subtract_named", jsonrpc.CreateMethod(SubtractNamed{}))
+	jserver.RegisterMethod("panic_method", jsonrpc.CreateMethod(PanicMethod{}))
 
 	handler := &wsHandler{server: jserver}
 	server := httptest.NewServer(handler)
@@ -70,7 +71,7 @@ func TestServer_Serve_panic(t *testing.T) {
 
 	a := rand.Int()
 
-	result, err := jsonrpc.Call[int](client, ctx, "panic", a)
+	result, err := jsonrpc.Call[int](client, ctx, "panic_method", a)
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	assert.Equal(t, 0, result)
@@ -86,7 +87,7 @@ func TestServer_Serve(t *testing.T) {
 			a := rand.Int()
 			b := rand.Int()
 
-			result, err := jsonrpc.Call[int](client, ctx, "subtract", [2]int{a, b})
+			result, err := jsonrpc.Call[int](client, ctx, "subtract_positional", [2]int{a, b})
 			require.NoError(t, err)
 
 			assert.Equal(t, a-b, result)
