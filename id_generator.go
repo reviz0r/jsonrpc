@@ -1,6 +1,10 @@
 package jsonrpc
 
-import "sync"
+import (
+	"sync"
+
+	"github.com/google/uuid"
+)
 
 type RequestIDGenerator interface {
 	Generate() ID
@@ -22,4 +26,15 @@ func (g *IntGenerator) Generate() ID {
 
 	g.i++
 	return IntID(g.i)
+}
+
+type UUIDGenerator struct{}
+
+func NewUUIDGenerator() *UUIDGenerator {
+	return new(UUIDGenerator)
+}
+
+func (g *UUIDGenerator) Generate() ID {
+	uid := uuid.New()
+	return StringID(uid.String())
 }
