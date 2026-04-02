@@ -1,6 +1,9 @@
 package jsonrpc
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"log/slog"
+)
 
 // response represents a JSON-RPC response returned by the server
 type response struct {
@@ -16,6 +19,7 @@ func responseWithResult(id *ID, result json.RawMessage) (json.RawMessage, error)
 
 func responseWithError(id *ID, isNotification bool, err *Error) (json.RawMessage, error) {
 	if isNotification {
+		slog.Warn("jsonrpc: error in notification response", "error", err)
 		return nil, nil
 	}
 
