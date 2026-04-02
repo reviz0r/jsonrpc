@@ -13,7 +13,7 @@ type Client struct {
 	conn        io.ReadWriteCloser
 	idGenerator RequestIDGenerator
 
-	m  sync.Mutex
+	m  sync.RWMutex
 	ch map[ID]chan json.RawMessage
 }
 
@@ -37,6 +37,9 @@ func (c *Client) createChan(id ID) chan json.RawMessage {
 }
 
 func (c *Client) getChan(id ID) chan json.RawMessage {
+	c.m.RLock()
+	defer c.m.RUnlock()
+
 	return c.ch[id]
 }
 
