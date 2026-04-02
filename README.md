@@ -2,7 +2,6 @@
 
 Simple idiomatic package with simple api for implement
 [JSON-RPC 2.0](https://www.jsonrpc.org/specification) server.
-It use common interfaces as io.Reader and io.Writer.
 Package based on standard library and __don't used__ empty interfaces and `reflect` package.
 Ready for use with `go mod`.
 
@@ -39,17 +38,17 @@ func Greeting(ctx context.Context, params *GreetingParams) (*GreetingResult, err
 		params.Name = "stranger"
 	}
 
-	res.Greeting = fmt.Sprintf("Hello, %s", params.Name)
+	result.Greeting = fmt.Sprintf("Hello, %s", params.Name)
 
-	return &res
+	return &result, nil
 }
 
 func main() {
-	repo := jsonrpc.New()
-	repo.RegisterMethod("greeting", 
+	server := jsonrpc.NewServer()
+	server.RegisterMethod("greeting",
 		jsonrpc.CreateMethod(jsonrpc.FuncMethod[*GreetingParams, *GreetingResult](Greeting)))
 
-	http.Handle("/rpc", repo)
+	http.Handle("/rpc", server)
 	http.ListenAndServe(":8080", http.DefaultServeMux)
 }
 ```
