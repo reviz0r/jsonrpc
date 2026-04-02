@@ -136,6 +136,10 @@ func (s *Server) Serve(conn io.ReadWriteCloser) {
 				return
 			}
 
+			if result == nil {
+				return // No need response for notification
+			}
+
 			_, err = conn.Write(result)
 			if err != nil {
 				slog.WarnContext(ctx, "jsonrpc: write response", "error", err.Error())

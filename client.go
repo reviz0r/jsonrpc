@@ -142,3 +142,19 @@ func Call[R, P any](c *Client, ctx context.Context, methodName string, params P)
 		return result, ctx.Err()
 	}
 }
+
+func CallNotify[P any](c *Client, ctx context.Context, methodName string, params P) error {
+	rawParams, err := json.Marshal(params)
+	if err != nil {
+		return fmt.Errorf("jsonrpc: marshal params: %w", err)
+	}
+
+	request := request{ID: nil, Jsonrpc: jsonrpcVersion, Method: methodName, Params: rawParams}
+
+	err = json.NewEncoder(c.conn).Encode(request)
+	if err != nil {
+		return fmt.Errorf("jsonrpc: marshal request to conn: %w", err)
+	}
+
+	return nil
+}

@@ -77,6 +77,16 @@ func TestServer_Serve_panic(t *testing.T) {
 	assert.Equal(t, 0, result)
 }
 
+func TestServer_Serve_notification(t *testing.T) {
+	ctx := context.Background()
+
+	a := rand.Int()
+	b := rand.Int()
+
+	err := jsonrpc.CallNotify(client, ctx, "subtract_positional", [2]int{a, b})
+	require.NoError(t, err)
+}
+
 func TestServer_Serve(t *testing.T) {
 	ctx := context.Background()
 
