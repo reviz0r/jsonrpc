@@ -1,4 +1,4 @@
-package gorilla
+package jsonrpc
 
 import (
 	"errors"

@@ -1,4 +1,4 @@
-package gorilla_test
+package jsonrpc_test
 
 import (
 	"context"
@@ -14,7 +14,6 @@ import (
 
 	"github.com/gorilla/websocket"
 	"github.com/reviz0r/jsonrpc"
-	"github.com/reviz0r/jsonrpc/gorilla"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 	"golang.org/x/sync/errgroup"
@@ -35,7 +34,7 @@ func (h *wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	go h.server.Serve(gorilla.NewWsConn(conn))
+	go h.server.Serve(jsonrpc.NewWsConn(conn))
 }
 
 var client *jsonrpc.Client
@@ -46,6 +45,7 @@ func TestMain(m *testing.M) {
 	jserver.RegisterMethod("subtract_positional", jsonrpc.CreateMethod(SubtractPositional{}))
 	jserver.RegisterMethod("subtract_named", jsonrpc.CreateMethod(SubtractNamed{}))
 	jserver.RegisterMethod("panic_method", jsonrpc.CreateMethod(PanicMethod{}))
+	defer jserver.Close()
 
 	handler := &wsHandler{server: jserver}
 	server := httptest.NewServer(handler)
@@ -58,7 +58,7 @@ func TestMain(m *testing.M) {
 		log.Fatalf("dial to websocket server: %s", err.Error())
 	}
 
-	jclient := jsonrpc.NewClient(gorilla.NewWsConn(conn), jsonrpc.NewIntGenerator())
+	jclient := jsonrpc.NewClient(jsonrpc.NewWsConn(conn), jsonrpc.NewIntGenerator())
 	defer jclient.Close()
 
 	client = jclient

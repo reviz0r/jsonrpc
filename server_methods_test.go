@@ -13,3 +13,9 @@ type SubtractNamed struct{}
 func (SubtractNamed) Call(ctx context.Context, req struct{ Minuend, Subtrahend int }) (int, error) {
 	return req.Minuend - req.Subtrahend, nil
 }
+
+type PanicMethod struct{}
+
+func (PanicMethod) Call(ctx context.Context, req int) (int, error) {
+	panic("just panic")
+}
