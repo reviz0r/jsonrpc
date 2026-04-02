@@ -27,14 +27,20 @@ func NewClient(conn io.ReadWriteCloser, ig RequestIDGenerator) *Client {
 	return cl
 }
 
-func (c *Client) addChan(id ID, ch chan json.RawMessage) {
+func (c *Client) createChan(id ID) chan json.RawMessage {
 	c.m.Lock()
 	defer c.m.Unlock()
 
+	ch := make(chan json.RawMessage, 1)
 	c.ch[id] = ch
+	return ch
 }
 
 func (c *Client) getChan(id ID) chan json.RawMessage {
+	return c.ch[id]
+}
+
+func (c *Client) dropChan(id ID) chan json.RawMessage {
 	c.m.Lock()
 	defer c.m.Unlock()
 
@@ -79,7 +85,7 @@ func (c *Client) Close() error {
 	err := c.conn.Close()
 
 	for id := range c.ch {
-		ch := c.getChan(id)
+		ch := c.dropChan(id)
 		close(ch)
 	}
 
@@ -99,9 +105,8 @@ func Call[R, P any](c *Client, ctx context.Context, methodName string, params P)
 	requestID := c.idGenerator.Generate()
 	request := request{ID: &requestID, Jsonrpc: jsonrpcVersion, Method: methodName, Params: rawParams}
 
-	ch := make(chan json.RawMessage, 1)
-	c.addChan(requestID, ch)
-	defer c.getChan(requestID) // убираем канал из ожидания ответа
+	ch := c.createChan(requestID)
+	defer c.dropChan(requestID) // убираем канал из ожидания ответа
 
 	err = json.NewEncoder(c.conn).Encode(request)
 	if err != nil {
