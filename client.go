@@ -49,6 +49,21 @@ func (c *Client) dropChan(id ID) chan json.RawMessage {
 	return ch
 }
 
+func (c *Client) Close() error {
+	err := c.conn.Close()
+
+	for id := range c.ch {
+		ch := c.dropChan(id)
+		close(ch)
+	}
+
+	if err != nil {
+		return fmt.Errorf("jsonrpc: close client conn: %w", err)
+	}
+
+	return nil
+}
+
 func (c *Client) readResponses() {
 	defer c.Close()
 
@@ -79,21 +94,6 @@ func (c *Client) readResponses() {
 			close(ch)
 		}
 	}
-}
-
-func (c *Client) Close() error {
-	err := c.conn.Close()
-
-	for id := range c.ch {
-		ch := c.dropChan(id)
-		close(ch)
-	}
-
-	if err != nil {
-		return fmt.Errorf("jsonrpc: close client conn: %w", err)
-	}
-
-	return nil
 }
 
 func Call[R, P any](c *Client, ctx context.Context, methodName string, params P) (result R, err error) {
