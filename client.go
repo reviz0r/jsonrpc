@@ -10,19 +10,18 @@ import (
 )
 
 type Client struct {
-	conn io.ReadWriteCloser
+	conn        io.ReadWriteCloser
+	idGenerator RequestIDGenerator
 
 	m  sync.Mutex
 	ch map[ID]chan json.RawMessage
-
-	idGenerator RequestIDGenerator
 }
 
 func NewClient(conn io.ReadWriteCloser, ig RequestIDGenerator) *Client {
 	cl := &Client{
 		conn:        conn,
-		ch:          make(map[ID]chan json.RawMessage),
 		idGenerator: ig,
+		ch:          make(map[ID]chan json.RawMessage),
 	}
 	go cl.readResponses()
 	return cl
