@@ -42,6 +42,7 @@ var client *jsonrpc.Client
 
 func TestMain(m *testing.M) {
 	jserver := jsonrpc.NewServer()
+	jserver.RegisterMethod("unimplemented_method", jsonrpc.CreateMethod(jsonrpc.UnimplementedMethod[int, int]{}))
 	jserver.RegisterMethod("subtract_positional", jsonrpc.CreateMethod(SubtractPositional{}))
 	jserver.RegisterMethod("subtract_named", jsonrpc.CreateMethod(SubtractNamed{}))
 	jserver.RegisterMethod("panic_method", jsonrpc.CreateMethod(PanicMethod{}))
@@ -75,6 +76,20 @@ func TestServer_Serve_panic(t *testing.T) {
 	require.ErrorIs(t, err, context.DeadlineExceeded)
 
 	assert.Equal(t, 0, result)
+}
+
+func TestServer_Serve_method_error(t *testing.T) {
+	ctx := context.Background()
+
+	a := rand.Int()
+
+	result, err := jsonrpc.Call[int](client, ctx, "unimplemented_method", a)
+	require.EqualError(t, err, "jsonrpc: response error: Internal error (unsupported operation)")
+
+	assert.Equal(t, 0, result)
+
+	err = jsonrpc.CallNotify(client, ctx, "unimplemented_method", a)
+	require.NoError(t, err)
 }
 
 func TestServer_Serve_notification(t *testing.T) {
