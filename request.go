@@ -2,8 +2,6 @@ package jsonrpc
 
 import "encoding/json"
 
-const jsonrpcVersion = "2.0"
-
 // request represents a JSON-RPC request received by the server
 type request struct {
 	ID      *ID             `json:"id,omitempty"`
