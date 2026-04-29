@@ -4,8 +4,11 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log/slog"
+	"net/http"
+	"strings"
 	"sync"
 	"time"
 )
@@ -94,6 +97,39 @@ func (s *Server) Handle(ctx context.Context, in json.RawMessage) (json.RawMessag
 	return responseWithResult(req.ID, result)
 }
 
+// ServeHTTP implement http.Handler for handling JSON-RPC requests over HTTP
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	w.Header().Set(contentType, contentTypeJSON)
+
+	if !strings.HasPrefix(r.Header.Get(contentType), contentTypeJSON) {
+		err := fmt.Errorf("%s must be %s", contentType, contentTypeJSON)
+		sendError(w, false, nil, ErrParseError(err.Error()))
+		return
+	}
+
+	body, err := io.ReadAll(r.Body)
+	if err != nil {
+		sendError(w, false, nil, ErrParseError(err.Error()))
+		return
+	}
+	defer r.Body.Close()
+
+	res, err := s.Handle(r.Context(), body)
+	if err != nil {
+		sendError(w, false, nil, ErrInternalError(err.Error()))
+		return
+	}
+
+	if res == nil {
+		w.WriteHeader(http.StatusOK)
+	} else {
+		if _, err := w.Write(res); err != nil {
+			sendError(w, false, nil, ErrInternalError(err.Error()))
+			return
+		}
+	}
+}
+
 func (s *Server) Serve(conn io.ReadWriteCloser) {
 	defer s.Close()
 
@@ -147,5 +183,23 @@ func (s *Server) Serve(conn io.ReadWriteCloser) {
 				return
 			}
 		}(ctx)
+	}
+}
+
+// sendError in response
+func sendError(w http.ResponseWriter, isNotification bool, id *ID, err *Error) {
+	res := response{
+		ID:      id,
+		Jsonrpc: jsonrpcVersion,
+		Error:   err,
+	}
+
+	if isNotification {
+		w.WriteHeader(http.StatusOK)
+	} else {
+		encodeErr := json.NewEncoder(w).Encode(res)
+		if encodeErr != nil {
+			w.WriteHeader(http.StatusInternalServerError)
+		}
 	}
 }
