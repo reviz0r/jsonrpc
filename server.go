@@ -128,10 +128,15 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	if res == nil {
 		w.WriteHeader(http.StatusOK)
-	} else {
-		if _, err := w.Write(res); err != nil {
+		return
+	}
+
+	n, err := w.Write(res)
+	if err != nil {
+		if n == 0 {
 			sendError(w, false, nil, ErrInternalError(err.Error()))
-			return
+		} else {
+			slog.WarnContext(r.Context(), "jsonrpc: write response", "error", err.Error())
 		}
 	}
 }
