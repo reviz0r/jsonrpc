@@ -45,25 +45,28 @@ func TestMain(m *testing.M) {
 	jserver.RegisterMethod("subtract_positional", jsonrpc.CreateMethod(SubtractPositional{}))
 	jserver.RegisterMethod("subtract_named", jsonrpc.CreateMethod(SubtractNamed{}))
 	jserver.RegisterMethod("panic_method", jsonrpc.CreateMethod(PanicMethod{}))
-	defer jserver.Close()
 
 	handler := &wsHandler{server: jserver}
 	server := httptest.NewServer(handler)
-	defer server.Close()
 
 	wsUrl := strings.ReplaceAll(server.URL, "http", "ws")
 
 	conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
 	if err != nil {
+		jserver.Close()
 		log.Fatalf("dial to websocket server: %s", err.Error())
 	}
 
 	jclient := jsonrpc.NewClient(jsonrpc.NewWsConn(conn), jsonrpc.NewIntGenerator())
-	defer jclient.Close()
 
 	client = jclient
 
-	os.Exit(m.Run())
+	exitCode := m.Run()
+
+	jclient.Close()
+	jserver.Close()
+
+	os.Exit(exitCode)
 }
 
 func TestServer_Serve_panic(t *testing.T) {
