@@ -37,7 +37,10 @@ func (h *wsHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	go h.server.Serve(jsonrpc.NewWsConn(conn))
 }
 
-var client *jsonrpc.Client
+var (
+	client  *jsonrpc.Client
+	httpURL string
+)
 
 func TestMain(m *testing.M) {
 	jserver := jsonrpc.NewServer()
@@ -46,12 +49,16 @@ func TestMain(m *testing.M) {
 	jserver.RegisterMethod("subtract_named", jsonrpc.CreateMethod(SubtractNamed{}))
 	jserver.RegisterMethod("panic_method", jsonrpc.CreateMethod(PanicMethod{}))
 
-	handler := &wsHandler{server: jserver}
-	server := httptest.NewServer(handler)
+	mux := http.NewServeMux()
+	mux.Handle("/rpc", jserver)
+	mux.Handle("/ws", &wsHandler{server: jserver})
 
-	wsUrl := strings.ReplaceAll(server.URL, "http", "ws")
+	server := httptest.NewServer(mux)
 
-	conn, _, err := websocket.DefaultDialer.Dial(wsUrl, nil)
+	httpURL = server.URL + "/rpc"
+	wsURL := strings.ReplaceAll(server.URL, "http", "ws") + "/ws"
+
+	conn, _, err := websocket.DefaultDialer.Dial(wsURL, nil)
 	if err != nil {
 		jserver.Close()
 		log.Fatalf("dial to websocket server: %s", err.Error())
