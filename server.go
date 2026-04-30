@@ -116,8 +116,14 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 	res, err := s.Handle(r.Context(), body)
 	if err != nil {
-		sendError(w, false, nil, ErrInternalError(err.Error()))
-		return
+		var mErr *marshalError
+		if errors.As(err, &mErr) {
+			sendError(w, false, mErr.ID(), ErrInternalError(err.Error()))
+			return
+		} else {
+			sendError(w, false, nil, ErrInternalError(err.Error()))
+			return
+		}
 	}
 
 	if res == nil {

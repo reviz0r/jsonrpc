@@ -14,7 +14,11 @@ type response struct {
 }
 
 func responseWithResult(id *ID, result json.RawMessage) (json.RawMessage, error) {
-	return json.Marshal(response{ID: id, Jsonrpc: jsonrpcVersion, Result: result})
+	data, marshalErr := json.Marshal(response{ID: id, Jsonrpc: jsonrpcVersion, Result: result})
+	if marshalErr != nil {
+		return nil, &marshalError{id: id, err: marshalErr}
+	}
+	return data, nil
 }
 
 func responseWithError(id *ID, isNotification bool, err *Error) (json.RawMessage, error) {
@@ -23,5 +27,9 @@ func responseWithError(id *ID, isNotification bool, err *Error) (json.RawMessage
 		return nil, nil
 	}
 
-	return json.Marshal(response{ID: id, Jsonrpc: jsonrpcVersion, Error: err})
+	data, marshalErr := json.Marshal(response{ID: id, Jsonrpc: jsonrpcVersion, Error: err})
+	if marshalErr != nil {
+		return nil, &marshalError{id: id, err: marshalErr}
+	}
+	return data, nil
 }
