@@ -73,3 +73,12 @@ func TestServer_ServeHTTP_concurrent(t *testing.T) {
 		})
 	}
 }
+
+func TestServer_ServeHTTP_context_canceled(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := jsonrpc.CallHTTP[int](httpClient, ctx, "subtract_positional", [2]int{1, 2})
+
+	require.ErrorIs(t, err, context.Canceled)
+}
