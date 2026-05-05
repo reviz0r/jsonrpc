@@ -25,6 +25,10 @@ func (c *WsConn) Close() error {
 	c.m.Lock()
 	defer c.m.Unlock()
 
+	if c.isClosed {
+		return nil
+	}
+
 	c.isClosed = true
 	return c.conn.Close()
 }
