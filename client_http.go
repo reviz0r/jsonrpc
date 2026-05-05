@@ -16,6 +16,10 @@ type HTTPClient struct {
 }
 
 func NewHTTPClient(endpoint string, ig RequestIDGenerator, httpClient *http.Client) *HTTPClient {
+	if httpClient == nil {
+		httpClient = http.DefaultClient
+	}
+
 	return &HTTPClient{
 		client:      httpClient,
 		endpoint:    endpoint,
@@ -36,12 +40,7 @@ func (c *HTTPClient) doHTTP(ctx context.Context, req request) (*http.Response, e
 
 	httpReq.Header.Set(contentType, contentTypeJSON)
 
-	client := c.client
-	if client == nil {
-		client = http.DefaultClient
-	}
-
-	resp, err := client.Do(httpReq)
+	resp, err := c.client.Do(httpReq)
 	if err != nil {
 		return nil, fmt.Errorf("jsonrpc: http request: %w", err)
 	}
@@ -69,22 +68,21 @@ func CallHTTP[R, P any](c *HTTPClient, ctx context.Context, methodName string, p
 		return result, fmt.Errorf("jsonrpc: read http response: %w", err)
 	}
 
-	if resp.StatusCode != http.StatusOK {
-		var rpcResp response
-		if unmarshalErr := json.Unmarshal(body, &rpcResp); unmarshalErr == nil && rpcResp.Error != nil {
-			return result, fmt.Errorf("jsonrpc: response error: %w", rpcResp.Error)
-		}
-		return result, fmt.Errorf("jsonrpc: http status %d: %s", resp.StatusCode, body)
-	}
-
 	var rpcResp response
 	err = json.Unmarshal(body, &rpcResp)
 	if err != nil {
+		if resp.StatusCode != http.StatusOK {
+			return result, fmt.Errorf("jsonrpc: http status %d: %s", resp.StatusCode, body)
+		}
 		return result, fmt.Errorf("jsonrpc: unmarshal response: %w", err)
 	}
 
 	if rpcResp.Error != nil {
 		return result, fmt.Errorf("jsonrpc: response error: %w", rpcResp.Error)
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		return result, fmt.Errorf("jsonrpc: http status %d: %s", resp.StatusCode, body)
 	}
 
 	err = json.Unmarshal(rpcResp.Result, &result)
