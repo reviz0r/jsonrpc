@@ -11,6 +11,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"golang.org/x/sync/errgroup"
 )
 
 type handler interface {
@@ -52,6 +54,52 @@ func (s *Server) Close() error {
 }
 
 func (s *Server) Handle(ctx context.Context, in json.RawMessage) (json.RawMessage, error) {
+	if IsBatch(in) {
+		return s.handleBatch(ctx, in)
+	} else {
+		return s.handleSingle(ctx, in)
+	}
+}
+
+func (s *Server) handleBatch(ctx context.Context, in json.RawMessage) (json.RawMessage, error) {
+	var req []json.RawMessage
+
+	err := json.Unmarshal(in, &req)
+	if err != nil {
+		var errUnmarshal *json.UnmarshalTypeError
+
+		if errors.As(err, &errUnmarshal) {
+			return responseWithError(nil, false, ErrInvalidRequest(err.Error()))
+		}
+
+		return responseWithError(nil, false, ErrParseError(err.Error()))
+	}
+
+	res := make([]json.RawMessage, len(req))
+	group, groupCtx := errgroup.WithContext(ctx)
+
+	for i, r := range req {
+		group.Go(func() error {
+			result, err := s.handleSingle(groupCtx, r)
+			if err != nil {
+				return fmt.Errorf("handle request (%d/%d): %w", i+1, len(req), err)
+			}
+
+			res[i] = result
+
+			return nil
+		})
+	}
+
+	err = group.Wait()
+	if err != nil {
+		return nil, fmt.Errorf(": %w", err)
+	}
+
+	return batchResponseWithResult(res)
+}
+
+func (s *Server) handleSingle(ctx context.Context, in json.RawMessage) (json.RawMessage, error) {
 	var req request
 
 	err := json.Unmarshal(in, &req)
