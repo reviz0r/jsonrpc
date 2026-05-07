@@ -15,7 +15,7 @@ type request struct {
 
 // isNotification Уведомление
 func (r *request) isNotification() bool {
-	return r.ID == nil
+	return r.ID == nil && r.Jsonrpc == jsonrpcVersion
 }
 
 // isValidVersion Правильная ли версия
