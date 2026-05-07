@@ -15,9 +15,11 @@ type handlerImpl[P, R any] struct {
 func (h handlerImpl[P, R]) handle(ctx context.Context, in json.RawMessage) (json.RawMessage, error) {
 	var req P
 
-	err := json.Unmarshal(in, &req)
-	if err != nil {
-		return nil, fmt.Errorf("jsonrpc: unmarshal request failed: %w", err)
+	if len(in) != 0 {
+		err := json.Unmarshal(in, &req)
+		if err != nil {
+			return nil, fmt.Errorf("jsonrpc: unmarshal request failed: %w", err)
+		}
 	}
 
 	res, err := h.method.Call(ctx, req)
