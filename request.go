@@ -2,7 +2,6 @@ package jsonrpc
 
 import (
 	"encoding/json"
-	"errors"
 	"unicode"
 )
 
@@ -42,29 +41,7 @@ func (r *request) validate() error {
 	return nil
 }
 
-type batchRequest []request
-
-func (r batchRequest) isNotification() bool {
-	for _, req := range r {
-		if !req.isNotification() {
-			return false
-		}
-	}
-
-	return true
-}
-
-func (r batchRequest) validate() error {
-	var err error
-
-	for _, req := range r {
-		err = errors.Join(err, req.validate())
-	}
-
-	return err
-}
-
-func IsBatchRequest(in json.RawMessage) bool {
+func IsBatch(in json.RawMessage) bool {
 	for _, r := range []rune(string(in)) {
 		switch {
 		case unicode.IsSpace(r):

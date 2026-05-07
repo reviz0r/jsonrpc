@@ -34,4 +34,10 @@ func responseWithError(id *ID, isNotification bool, err *Error) (json.RawMessage
 	return data, nil
 }
 
-type batchResponse []response
+func batchResponseWithResult(result []json.RawMessage) (json.RawMessage, error) {
+	data, marshalErr := json.Marshal(result)
+	if marshalErr != nil {
+		return nil, &marshalError{err: marshalErr}
+	}
+	return data, nil
+}
