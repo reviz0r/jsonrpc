@@ -97,7 +97,7 @@ func (s *Server) handleBatch(ctx context.Context, in json.RawMessage) (json.RawM
 
 	err = group.Wait()
 	if err != nil {
-		return nil, fmt.Errorf(": %w", err)
+		return responseWithError(nil, false, ErrInternalError(err.Error()))
 	}
 
 	if batchResponseIsNotification(res) {
