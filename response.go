@@ -34,6 +34,14 @@ func responseWithError(id *ID, isNotification bool, err *Error) (json.RawMessage
 	return data, nil
 }
 
+func responseError(err *Error) (json.RawMessage, error) {
+	data, marshalErr := json.Marshal(response{Jsonrpc: jsonrpcVersion, Error: err})
+	if marshalErr != nil {
+		return nil, &marshalError{err: marshalErr}
+	}
+	return data, nil
+}
+
 func batchResponseWithResult(result []json.RawMessage) (json.RawMessage, error) {
 	data, marshalErr := json.Marshal(result)
 	if marshalErr != nil {

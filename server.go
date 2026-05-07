@@ -69,14 +69,14 @@ func (s *Server) handleBatch(ctx context.Context, in json.RawMessage) (json.RawM
 		var errUnmarshal *json.UnmarshalTypeError
 
 		if errors.As(err, &errUnmarshal) {
-			return responseWithError(nil, false, ErrInvalidRequest(err.Error()))
+			return responseError(ErrInvalidRequest(err.Error()))
 		}
 
-		return responseWithError(nil, false, ErrParseError(err.Error()))
+		return responseError(ErrParseError(err.Error()))
 	}
 
 	if len(req) == 0 {
-		return responseWithError(nil, false, ErrInvalidRequest(nil))
+		return responseError(ErrInvalidRequest(nil))
 	}
 
 	res := make([]json.RawMessage, len(req))
@@ -97,7 +97,7 @@ func (s *Server) handleBatch(ctx context.Context, in json.RawMessage) (json.RawM
 
 	err = group.Wait()
 	if err != nil {
-		return responseWithError(nil, false, ErrInternalError(err.Error()))
+		return responseError(ErrInternalError(err.Error()))
 	}
 
 	if batchResponseIsNotification(res) {
