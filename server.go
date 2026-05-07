@@ -8,6 +8,7 @@ import (
 	"io"
 	"log/slog"
 	"net/http"
+	"slices"
 	"strings"
 	"sync"
 	"time"
@@ -99,6 +100,8 @@ func (s *Server) handleBatch(ctx context.Context, in json.RawMessage) (json.RawM
 	if err != nil {
 		return responseError(ErrInternalError(err.Error()))
 	}
+
+	res = slices.DeleteFunc(res, func(r json.RawMessage) bool { return r == nil })
 
 	if batchResponseIsNotification(res) {
 		return nil, nil
