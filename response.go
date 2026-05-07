@@ -33,3 +33,5 @@ func responseWithError(id *ID, isNotification bool, err *Error) (json.RawMessage
 	}
 	return data, nil
 }
+
+type batchResponse []response
