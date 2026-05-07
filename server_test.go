@@ -80,12 +80,12 @@ func TestServer_Handle(t *testing.T) {
 		{
 			desc:    "8. rpc call with invalid JSON",
 			req:     `{"jsonrpc": "2.0", "method": "foobar, "params": "bar", "baz]`,
-			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error"}, "id": null}`,
+			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error", "data":"invalid character 'p' after object key:value pair"}, "id": null}`,
 		},
 		{
 			desc:    "9. rpc call with invalid Request object",
 			req:     `{"jsonrpc": "2.0", "method": 1, "params": "bar"}`,
-			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}`,
+			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request", "data":"json: cannot unmarshal number into Go struct field request.method of type string"}, "id": null}`,
 		},
 		{
 			desc: "10. rpc call Batch, invalid JSON",
@@ -158,27 +158,27 @@ func TestServer_Handle(t *testing.T) {
 		{
 			desc:    "rpc call with invalid Request id (bool)",
 			req:     `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": true}`,
-			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}`,
+			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request", "data":"json: cannot unmarshal bool into Go struct field request.id of type jsonrpc.ID"}, "id": null}`,
 		},
 		{
 			desc:    "rpc call with invalid Request id (float)",
 			req:     `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": 1.1}`,
-			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}`,
+			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request", "data":"json: cannot unmarshal float into Go struct field request.id of type jsonrpc.ID"}, "id": null}`,
 		},
 		{
 			desc:    "rpc call with invalid Request id (array)",
 			req:     `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": ["foo", "bar"]}`,
-			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}`,
+			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request", "data":"json: cannot unmarshal array into Go struct field request.id of type jsonrpc.ID"}, "id": null}`,
 		},
 		{
 			desc:    "rpc call with invalid Request id (object)",
 			req:     `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": {"foo": "bar"}}`,
-			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request"}, "id": null}`,
+			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32600, "message": "Invalid Request", "data":"json: cannot unmarshal object into Go struct field request.id of type jsonrpc.ID"}, "id": null}`,
 		},
 		{
 			desc:    "rpc call with invalid Request id (string with quote)",
 			req:     `{"jsonrpc": "2.0", "method": "foobar", "params": "bar", "id": "va"lue"}`,
-			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error"}, "id": null}`,
+			wantRes: `{"jsonrpc": "2.0", "error": {"code": -32700, "message": "Parse error", "data":"invalid character 'l' after object key:value pair"}, "id": null}`,
 		},
 		{
 			desc:    "rpc call with invalid Request id (string with escaped quote)",
