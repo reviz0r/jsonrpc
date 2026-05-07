@@ -204,23 +204,9 @@ func TestServer_Handle(t *testing.T) {
 
 			if tC.isNotification {
 				assert.Nil(t, res)
-				return
+			} else {
+				assert.JSONEq(t, tC.wantRes, string(res))
 			}
-
-			var wantRes, gotRes response
-
-			err = json.Unmarshal(res, &gotRes)
-			require.NoError(t, err)
-
-			err = json.Unmarshal([]byte(tC.wantRes), &wantRes)
-			require.NoError(t, err)
-
-			if gotRes.Error != (jsonrpc.Error{}) {
-				t.Logf("error data: %v", gotRes.Error.Data)
-				gotRes.Error.Data = nil // error data is empty in test cases
-			}
-
-			assert.Equal(t, wantRes, gotRes)
 		})
 	}
 }
