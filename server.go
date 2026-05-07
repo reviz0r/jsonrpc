@@ -75,6 +75,10 @@ func (s *Server) handleBatch(ctx context.Context, in json.RawMessage) (json.RawM
 		return responseWithError(nil, false, ErrParseError(err.Error()))
 	}
 
+	if len(req) == 0 {
+		return responseWithError(nil, false, ErrInvalidRequest(nil))
+	}
+
 	res := make([]json.RawMessage, len(req))
 	group, groupCtx := errgroup.WithContext(ctx)
 
@@ -94,6 +98,10 @@ func (s *Server) handleBatch(ctx context.Context, in json.RawMessage) (json.RawM
 	err = group.Wait()
 	if err != nil {
 		return nil, fmt.Errorf(": %w", err)
+	}
+
+	if batchResponseIsNotification(res) {
+		return nil, nil
 	}
 
 	return batchResponseWithResult(res)

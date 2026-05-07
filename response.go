@@ -41,3 +41,13 @@ func batchResponseWithResult(result []json.RawMessage) (json.RawMessage, error) 
 	}
 	return data, nil
 }
+
+func batchResponseIsNotification(result []json.RawMessage) bool {
+	for _, r := range result {
+		if r != nil {
+			return false
+		}
+	}
+
+	return true
+}
