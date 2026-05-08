@@ -10,52 +10,54 @@ import (
 )
 
 type Client struct {
-	conn        io.ReadWriteCloser
-	idGenerator RequestIDGenerator
+	writeM sync.Mutex
+	conn   io.ReadWriteCloser
 
-	m  sync.RWMutex
-	ch map[ID]chan json.RawMessage
+	chanM sync.RWMutex
+	chans map[ID]chan json.RawMessage
+
+	idGenerator RequestIDGenerator
 }
 
 func NewClient(conn io.ReadWriteCloser, ig RequestIDGenerator) *Client {
 	cl := &Client{
 		conn:        conn,
 		idGenerator: ig,
-		ch:          make(map[ID]chan json.RawMessage),
+		chans:       make(map[ID]chan json.RawMessage),
 	}
 	go cl.readResponses()
 	return cl
 }
 
 func (c *Client) createChan(id ID) chan json.RawMessage {
-	c.m.Lock()
-	defer c.m.Unlock()
+	c.chanM.Lock()
+	defer c.chanM.Unlock()
 
 	ch := make(chan json.RawMessage, 1)
-	c.ch[id] = ch
+	c.chans[id] = ch
 	return ch
 }
 
 func (c *Client) getChan(id ID) chan json.RawMessage {
-	c.m.RLock()
-	defer c.m.RUnlock()
+	c.chanM.RLock()
+	defer c.chanM.RUnlock()
 
-	return c.ch[id]
+	return c.chans[id]
 }
 
 func (c *Client) dropChan(id ID) chan json.RawMessage {
-	c.m.Lock()
-	defer c.m.Unlock()
+	c.chanM.Lock()
+	defer c.chanM.Unlock()
 
-	ch := c.ch[id]
-	delete(c.ch, id)
+	ch := c.chans[id]
+	delete(c.chans, id)
 	return ch
 }
 
 func (c *Client) Close() error {
 	err := c.conn.Close()
 
-	for id := range c.ch {
+	for id := range c.chans {
 		ch := c.dropChan(id)
 		close(ch)
 	}
@@ -111,7 +113,9 @@ func Call[R, P any](c *Client, ctx context.Context, methodName string, params P)
 	ch := c.createChan(requestID)
 	defer c.dropChan(requestID) // убираем канал из ожидания ответа
 
+	c.writeM.Lock()
 	err = json.NewEncoder(c.conn).Encode(request)
+	c.writeM.Unlock()
 	if err != nil {
 		return result, fmt.Errorf("jsonrpc: marshal request to conn: %w", err)
 	}
@@ -151,7 +155,9 @@ func CallNotify[P any](c *Client, ctx context.Context, methodName string, params
 
 	request := request{ID: nil, Jsonrpc: jsonrpcVersion, Method: methodName, Params: rawParams}
 
+	c.writeM.Lock()
 	err = json.NewEncoder(c.conn).Encode(request)
+	c.writeM.Unlock()
 	if err != nil {
 		return fmt.Errorf("jsonrpc: marshal request to conn: %w", err)
 	}
