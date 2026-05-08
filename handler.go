@@ -3,7 +3,6 @@ package jsonrpc
 import (
 	"context"
 	"encoding/json"
-	"fmt"
 )
 
 var _ handler = handlerImpl[any, any]{}
@@ -18,7 +17,7 @@ func (h handlerImpl[P, R]) handle(ctx context.Context, in json.RawMessage) (json
 	if len(in) != 0 {
 		err := json.Unmarshal(in, &req)
 		if err != nil {
-			return nil, fmt.Errorf("jsonrpc: unmarshal request failed: %w", err)
+			return nil, ErrInvalidParams(err.Error())
 		}
 	}
 
@@ -29,7 +28,7 @@ func (h handlerImpl[P, R]) handle(ctx context.Context, in json.RawMessage) (json
 
 	out, err := json.Marshal(res)
 	if err != nil {
-		return nil, fmt.Errorf("jsonrpc: marshal response failed: %w", err)
+		return nil, ErrInternalError(err.Error())
 	}
 
 	return out, nil
