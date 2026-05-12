@@ -13,6 +13,7 @@ import (
 )
 
 func TestServer_Serve_panic(t *testing.T) {
+	t.Parallel()
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
 	defer cancel()
 
@@ -25,6 +26,7 @@ func TestServer_Serve_panic(t *testing.T) {
 }
 
 func TestServer_Serve_method_error(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 
 	a := rand.Int()
@@ -39,6 +41,7 @@ func TestServer_Serve_method_error(t *testing.T) {
 }
 
 func TestServer_Serve_notification(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 
 	a := rand.Int()
@@ -49,6 +52,7 @@ func TestServer_Serve_notification(t *testing.T) {
 }
 
 func TestServer_Serve(t *testing.T) {
+	t.Parallel()
 	ctx := context.Background()
 
 	var group errgroup.Group
