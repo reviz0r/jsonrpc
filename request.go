@@ -55,3 +55,11 @@ func IsBatch(in json.RawMessage) bool {
 
 	return false
 }
+
+func extractID(msg json.RawMessage) *ID {
+	var partial struct {
+		ID *ID `json:"id"`
+	}
+	json.Unmarshal(msg, &partial)
+	return partial.ID
+}

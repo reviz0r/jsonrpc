@@ -25,7 +25,7 @@ type Server struct {
 	handlers map[string]handler
 	timeout  time.Duration
 
-	closeCh chan struct{}
+	closeCh   chan struct{}
 	closeOnce sync.Once
 }
 
@@ -247,7 +247,7 @@ func (s *Server) Serve(conn Conn) {
 			if err != nil {
 				var rpcErr *Error
 				if errors.As(err, &rpcErr) {
-					res, _ := responseWithError(nil, false, rpcErr)
+					res, _ := responseWithError(extractID(msg), false, rpcErr)
 					if res != nil {
 						writeErr := conn.WriteMessage(res)
 						if writeErr != nil {

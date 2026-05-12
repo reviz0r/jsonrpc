@@ -2,9 +2,9 @@ package jsonrpc_test
 
 import (
 	"context"
+	"errors"
 	"math/rand"
 	"testing"
-	"time"
 
 	"github.com/reviz0r/jsonrpc"
 	"github.com/stretchr/testify/assert"
@@ -14,15 +14,18 @@ import (
 
 func TestServer_Serve_panic(t *testing.T) {
 	t.Parallel()
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
-	defer cancel()
+	ctx := context.Background()
 
 	a := rand.Int()
 
 	result, err := jsonrpc.Call[int](wsClient, ctx, "panic_method", a)
-	require.ErrorIs(t, err, context.DeadlineExceeded)
+	require.Error(t, err)
 
 	assert.Equal(t, 0, result)
+
+	var rpcErr *jsonrpc.Error
+	require.True(t, errors.As(err, &rpcErr))
+	assert.Equal(t, -32603, rpcErr.Code)
 }
 
 func TestServer_Serve_method_error(t *testing.T) {
