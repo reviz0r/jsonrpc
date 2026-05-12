@@ -20,7 +20,7 @@ import (
 
 var (
 	wsClient   *jsonrpc.Client
-	httpClient *jsonrpc.HTTPClient
+	httpClient *jsonrpc.Client
 	httpURL    string
 )
 

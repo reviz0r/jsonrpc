@@ -201,10 +201,10 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
-func (s *Server) Serve(conn io.ReadWriteCloser) {
+func (s *Server) Serve(conn Conn) {
 	defer s.Close()
 
-	go func(c io.ReadWriteCloser) {
+	go func(c Conn) {
 		<-s.closeCh
 		c.Close()
 	}(conn)
@@ -212,7 +212,7 @@ func (s *Server) Serve(conn io.ReadWriteCloser) {
 	for {
 		ctx := context.Background()
 
-		msg, err := io.ReadAll(conn)
+		msg, err := conn.ReadMessage()
 		if err != nil {
 			slog.WarnContext(ctx, "jsonrpc: read request", "error", err.Error())
 
@@ -249,7 +249,7 @@ func (s *Server) Serve(conn io.ReadWriteCloser) {
 				if errors.As(err, &rpcErr) {
 					res, _ := responseWithError(nil, false, rpcErr)
 					if res != nil {
-						_, writeErr := conn.Write(res)
+						writeErr := conn.WriteMessage(res)
 						if writeErr != nil {
 							slog.WarnContext(ctx, "jsonrpc: write response", "error", writeErr.Error())
 						}
@@ -265,7 +265,7 @@ func (s *Server) Serve(conn io.ReadWriteCloser) {
 				return
 			}
 
-			_, err = conn.Write(result)
+			err = conn.WriteMessage(result)
 			if err != nil {
 				slog.WarnContext(ctx, "jsonrpc: write response", "error", err.Error())
 

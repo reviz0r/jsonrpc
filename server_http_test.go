@@ -16,7 +16,7 @@ func TestServer_ServeHTTP_successful_call(t *testing.T) {
 	a := rand.Int()
 	b := rand.Int()
 
-	result, err := jsonrpc.CallHTTP[int](httpClient, context.Background(), "subtract_positional", [2]int{a, b})
+			result, err := jsonrpc.Call[int](httpClient, context.Background(), "subtract_positional", [2]int{a, b})
 
 	require.NoError(t, err)
 	assert.Equal(t, a-b, result)
@@ -24,7 +24,7 @@ func TestServer_ServeHTTP_successful_call(t *testing.T) {
 
 func TestServer_ServeHTTP_method_not_found(t *testing.T) {
 	t.Parallel()
-	_, err := jsonrpc.CallHTTP[int](httpClient, context.Background(), "nonexistent", 0)
+	_, err := jsonrpc.Call[int](httpClient, context.Background(), "nonexistent", 0)
 
 	require.Error(t, err)
 
@@ -35,7 +35,7 @@ func TestServer_ServeHTTP_method_not_found(t *testing.T) {
 
 func TestServer_ServeHTTP_method_error(t *testing.T) {
 	t.Parallel()
-	_, err := jsonrpc.CallHTTP[int](httpClient, context.Background(), "unimplemented_method", 0)
+	_, err := jsonrpc.Call[int](httpClient, context.Background(), "unimplemented_method", 0)
 
 	require.Error(t, err)
 
@@ -60,7 +60,7 @@ func TestServer_ServeHTTP_invalid_json(t *testing.T) {
 
 func TestServer_ServeHTTP_notification(t *testing.T) {
 	t.Parallel()
-	err := jsonrpc.CallNotifyHTTP(httpClient, context.Background(), "subtract_positional", [2]int{42, 23})
+	err := jsonrpc.CallNotify(httpClient, context.Background(), "subtract_positional", [2]int{42, 23})
 
 	require.NoError(t, err)
 }
@@ -73,7 +73,7 @@ func TestServer_ServeHTTP_concurrent(t *testing.T) {
 			a := rand.Int()
 			b := rand.Int()
 
-			result, err := jsonrpc.CallHTTP[int](httpClient, context.Background(), "subtract_positional", [2]int{a, b})
+	result, err := jsonrpc.Call[int](httpClient, context.Background(), "subtract_positional", [2]int{a, b})
 
 			require.NoError(t, err)
 			assert.Equal(t, a-b, result)
@@ -86,7 +86,7 @@ func TestServer_ServeHTTP_context_canceled(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	cancel()
 
-	_, err := jsonrpc.CallHTTP[int](httpClient, ctx, "subtract_positional", [2]int{1, 2})
+	_, err := jsonrpc.Call[int](httpClient, ctx, "subtract_positional", [2]int{1, 2})
 
 	require.ErrorIs(t, err, context.Canceled)
 }

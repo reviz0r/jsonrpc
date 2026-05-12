@@ -1,20 +1,20 @@
 package jsonrpc
 
 import (
-	"errors"
 	"io"
 	"sync"
+	"sync/atomic"
 
 	"github.com/gorilla/websocket"
 )
 
-var _ io.ReadWriteCloser = new(WsConn)
+var _ Conn = new(WsConn)
 
 type WsConn struct {
-	conn *websocket.Conn
-	m    sync.Mutex
-
-	isClosed bool
+	conn     *websocket.Conn
+	writeM   sync.Mutex
+	readM    sync.Mutex
+	isClosed atomic.Bool
 }
 
 func NewWsConn(conn *websocket.Conn) *WsConn {
@@ -22,42 +22,40 @@ func NewWsConn(conn *websocket.Conn) *WsConn {
 }
 
 func (c *WsConn) Close() error {
-	c.m.Lock()
-	defer c.m.Unlock()
-
-	if c.isClosed {
+	if c.isClosed.Swap(true) {
 		return nil
 	}
 
-	c.isClosed = true
 	return c.conn.Close()
 }
 
-func (c *WsConn) Read(buf []byte) (int, error) {
-	if c.isClosed {
-		return 0, io.EOF
+func (c *WsConn) ReadMessage() ([]byte, error) {
+	c.readM.Lock()
+	defer c.readM.Unlock()
+
+	if c.isClosed.Load() {
+		return nil, io.EOF
 	}
 
 	for {
 		msgType, msg, err := c.conn.ReadMessage()
 		if err != nil {
-			return 0, err
+			return nil, err
 		}
 
 		if msgType == websocket.TextMessage {
-			return copy(buf, msg), io.EOF
+			return msg, nil
 		}
 	}
 }
 
-func (c *WsConn) Write(buf []byte) (int, error) {
-	c.m.Lock()
-	defer c.m.Unlock()
+func (c *WsConn) WriteMessage(data []byte) error {
+	c.writeM.Lock()
+	defer c.writeM.Unlock()
 
-	if c.isClosed {
-		return 0, errors.New("connection is closed")
+	if c.isClosed.Load() {
+		return io.ErrClosedPipe
 	}
 
-	err := c.conn.WriteMessage(websocket.TextMessage, buf)
-	return len(buf), err
+	return c.conn.WriteMessage(websocket.TextMessage, data)
 }

@@ -4,101 +4,30 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
-	"log/slog"
-	"sync"
+	"net/http"
 )
 
 type Client struct {
-	writeM sync.Mutex
-	conn   io.ReadWriteCloser
-
-	chanM sync.RWMutex
-	chans map[ID]chan json.RawMessage
-
+	transport   transport
 	idGenerator RequestIDGenerator
 }
 
-func NewClient(conn io.ReadWriteCloser, ig RequestIDGenerator) *Client {
-	cl := &Client{
-		conn:        conn,
+func NewClient(conn Conn, ig RequestIDGenerator) *Client {
+	return &Client{
+		transport:   newWsTransport(conn),
 		idGenerator: ig,
-		chans:       make(map[ID]chan json.RawMessage),
 	}
-	go cl.readResponses()
-	return cl
 }
 
-func (c *Client) createChan(id ID) chan json.RawMessage {
-	c.chanM.Lock()
-	defer c.chanM.Unlock()
-
-	ch := make(chan json.RawMessage, 1)
-	c.chans[id] = ch
-	return ch
-}
-
-func (c *Client) getChan(id ID) chan json.RawMessage {
-	c.chanM.RLock()
-	defer c.chanM.RUnlock()
-
-	return c.chans[id]
-}
-
-func (c *Client) dropChan(id ID) chan json.RawMessage {
-	c.chanM.Lock()
-	defer c.chanM.Unlock()
-
-	ch := c.chans[id]
-	delete(c.chans, id)
-	return ch
+func NewHTTPClient(endpoint string, ig RequestIDGenerator, httpClient *http.Client) *Client {
+	return &Client{
+		transport:   newHTTPTransport(endpoint, httpClient),
+		idGenerator: ig,
+	}
 }
 
 func (c *Client) Close() error {
-	err := c.conn.Close()
-
-	for id := range c.chans {
-		ch := c.dropChan(id)
-		close(ch)
-	}
-
-	if err != nil {
-		return fmt.Errorf("jsonrpc: close client conn: %w", err)
-	}
-
-	return nil
-}
-
-func (c *Client) readResponses() {
-	defer c.Close()
-
-	for {
-		msg, err := io.ReadAll(c.conn)
-		if err != nil {
-			slog.Warn("jsonrpc: read response", "error", err.Error())
-
-			return
-		}
-
-		var response response
-
-		err = json.Unmarshal(msg, &response)
-		if err != nil {
-			slog.Warn("jsonrpc: unmarshal response", "error", err.Error())
-
-			continue
-		}
-
-		if response.ID == nil {
-			continue
-		}
-
-		ch := c.getChan(*response.ID)
-		if ch != nil {
-			ch <- msg
-			close(ch)
-		}
-	}
+	return c.transport.close()
 }
 
 func Call[R, P any](c *Client, ctx context.Context, methodName string, params P) (result R, err error) {
@@ -108,43 +37,32 @@ func Call[R, P any](c *Client, ctx context.Context, methodName string, params P)
 	}
 
 	requestID := c.idGenerator.Generate()
-	request := request{ID: &requestID, Jsonrpc: jsonrpcVersion, Method: methodName, Params: rawParams}
+	req := request{ID: &requestID, Jsonrpc: jsonrpcVersion, Method: methodName, Params: rawParams}
 
-	ch := c.createChan(requestID)
-	defer c.dropChan(requestID) // убираем канал из ожидания ответа
-
-	c.writeM.Lock()
-	err = json.NewEncoder(c.conn).Encode(request)
-	c.writeM.Unlock()
+	rawReq, err := json.Marshal(req)
 	if err != nil {
-		return result, fmt.Errorf("jsonrpc: marshal request to conn: %w", err)
+		return result, fmt.Errorf("jsonrpc: marshal request: %w", err)
 	}
 
-	select {
-	case rawResponse, isSuccess := <-ch:
-		if !isSuccess {
-			return result, ErrClientClosed
-		}
-
-		var response response
-		err := json.Unmarshal(rawResponse, &response)
-		if err != nil {
-			return result, fmt.Errorf("jsonrpc: unmarshal response: %w", err)
-		}
-
-		if response.Error != nil {
-			return result, fmt.Errorf("jsonrpc: response error: %w", response.Error)
-		}
-
-		err = json.Unmarshal(response.Result, &result)
-		if err != nil {
-			return result, fmt.Errorf("jsonrpc: unmarshal result: %w", err)
-		}
-
-		return result, nil
-	case <-ctx.Done():
-		return result, ctx.Err()
+	rawResp, err := c.transport.call(ctx, &requestID, rawReq)
+	if err != nil {
+		return result, err
 	}
+
+	var resp response
+	if err := json.Unmarshal(rawResp, &resp); err != nil {
+		return result, fmt.Errorf("jsonrpc: unmarshal response: %w", err)
+	}
+
+	if resp.Error != nil {
+		return result, fmt.Errorf("jsonrpc: response error: %w", resp.Error)
+	}
+
+	if err := json.Unmarshal(resp.Result, &result); err != nil {
+		return result, fmt.Errorf("jsonrpc: unmarshal result: %w", err)
+	}
+
+	return result, nil
 }
 
 func CallNotify[P any](c *Client, ctx context.Context, methodName string, params P) error {
@@ -153,14 +71,12 @@ func CallNotify[P any](c *Client, ctx context.Context, methodName string, params
 		return fmt.Errorf("jsonrpc: marshal params: %w", err)
 	}
 
-	request := request{ID: nil, Jsonrpc: jsonrpcVersion, Method: methodName, Params: rawParams}
+	req := request{ID: nil, Jsonrpc: jsonrpcVersion, Method: methodName, Params: rawParams}
 
-	c.writeM.Lock()
-	err = json.NewEncoder(c.conn).Encode(request)
-	c.writeM.Unlock()
+	rawReq, err := json.Marshal(req)
 	if err != nil {
-		return fmt.Errorf("jsonrpc: marshal request to conn: %w", err)
+		return fmt.Errorf("jsonrpc: marshal request: %w", err)
 	}
 
-	return nil
+	return c.transport.notify(ctx, rawReq)
 }
