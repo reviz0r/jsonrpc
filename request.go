@@ -1,8 +1,8 @@
 package jsonrpc
 
 import (
+	"bytes"
 	"encoding/json"
-	"unicode"
 )
 
 // request represents a JSON-RPC request received by the server
@@ -42,18 +42,8 @@ func (r *request) validate() error {
 }
 
 func IsBatch(in json.RawMessage) bool {
-	for _, r := range []rune(string(in)) {
-		switch {
-		case unicode.IsSpace(r):
-			continue
-		case r == '[':
-			return true
-		default:
-			return false
-		}
-	}
-
-	return false
+	trimmed := bytes.TrimSpace(in)
+	return len(trimmed) > 0 && trimmed[0] == '['
 }
 
 func extractID(msg json.RawMessage) *ID {
