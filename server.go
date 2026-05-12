@@ -218,32 +218,50 @@ func (s *Server) Serve(conn io.ReadWriteCloser) {
 			return
 		}
 
-		go func(ctx context.Context) {
-			defer func() {
-				if r := recover(); r != nil {
-					slog.ErrorContext(ctx, "jsonrpc: handler got panic", "recover_message", r)
+		go func(ctx context.Context, msg json.RawMessage) {
+			var result json.RawMessage
+			var err error
+
+			func() {
+				defer func() {
+					if r := recover(); r != nil {
+						slog.ErrorContext(ctx, "jsonrpc: handler got panic", "recover_message", r)
+						err = ErrInternalError(fmt.Sprintf("panic: %v", r))
+					}
+				}()
+
+				var cancel context.CancelFunc
+
+				if s.timeout > 0 {
+					ctx, cancel = context.WithTimeout(ctx, s.timeout)
+				} else {
+					ctx, cancel = context.WithCancel(ctx)
 				}
+
+				defer cancel()
+
+				result, err = s.Handle(ctx, msg)
 			}()
 
-			var cancel context.CancelFunc
-
-			if s.timeout > 0 {
-				ctx, cancel = context.WithTimeout(ctx, s.timeout)
-			} else {
-				ctx, cancel = context.WithCancel(ctx)
-			}
-
-			defer cancel()
-
-			result, err := s.Handle(ctx, msg)
 			if err != nil {
+				var rpcErr *Error
+				if errors.As(err, &rpcErr) {
+					res, _ := responseWithError(nil, false, rpcErr)
+					if res != nil {
+						_, writeErr := conn.Write(res)
+						if writeErr != nil {
+							slog.WarnContext(ctx, "jsonrpc: write response", "error", writeErr.Error())
+						}
+					}
+				}
+
 				slog.WarnContext(ctx, "jsonrpc: handle request", "error", err.Error())
 
 				return
 			}
 
 			if result == nil {
-				return // No need response for notification
+				return
 			}
 
 			_, err = conn.Write(result)
@@ -252,7 +270,7 @@ func (s *Server) Serve(conn io.ReadWriteCloser) {
 
 				return
 			}
-		}(ctx)
+		}(ctx, msg)
 	}
 }
 
