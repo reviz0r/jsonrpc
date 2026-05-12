@@ -26,6 +26,7 @@ type Server struct {
 	timeout  time.Duration
 
 	closeCh chan struct{}
+	closeOnce sync.Once
 }
 
 func NewServer() *Server {
@@ -49,7 +50,7 @@ func (s *Server) RegisterMethod(name string, handler handler) {
 var _ io.Closer = new(Server)
 
 func (s *Server) Close() error {
-	close(s.closeCh)
+	s.closeOnce.Do(func() { close(s.closeCh) })
 
 	return nil
 }
